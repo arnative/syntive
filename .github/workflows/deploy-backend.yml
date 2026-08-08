@@ -9,16 +9,16 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Skips until the secrets exist (first push to a fresh repo will pass trivially).
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - name: Install
         run: bun install --frozen-lockfile
       - name: Deploy Worker
+        if: env.CF_API_TOKEN != ''
         working-directory: backend
         run: bunx wrangler deploy
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # Step skips cleanly until CLOUDFLARE_API_TOKEN is set in repo secrets.
