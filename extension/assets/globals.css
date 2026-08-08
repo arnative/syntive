@@ -1,0 +1,317 @@
+@import "tailwindcss";
+
+/* Self-hosted Inter variable font (latin subset, weight axis 100-900).
+   No CDN: newtab/popup must render fast and work offline. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Inter.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Inter-Italic.woff2') format('woff2-variations');
+}
+/* Self-hosted Lilex variable mono font (wght axis 200-700). Used for
+   mono labels & section headings. Latin & cyrillic subset. */
+@font-face {
+  font-family: 'Lilex';
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: swap;
+  src: url('./fonts/Lilex-Var.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Lilex';
+  font-style: italic;
+  font-weight: 200 700;
+  font-display: swap;
+  src: url('./fonts/Lilex-Italic-Var.woff2') format('woff2-variations');
+}
+
+/* Single dark theme (Cloudflare-dashboard inspired). Add a light
+   variant behind a `.light` class toggle when a theme switch is requested. */
+:root {
+  --radius: 0.75rem; /* Soft & modern 12px radius for cards, inputs & buttons */
+
+  /* Core surfaces */
+  --background: oklch(0.11 0 0); /* Dark zinc background (zinc-950) */
+  --foreground: oklch(0.98 0 0); /* Off-white text (zinc-50) */
+  --card: oklch(0.16 0 0); /* Distinct gray card surface (zinc-900) */
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.16 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+
+  /* Subtle / Muted */
+  --muted: oklch(0.22 0 0); /* Dark gray container (zinc-800) */
+  --muted-foreground: oklch(0.72 0 0); /* Bright, highly legible muted text (zinc-300) */
+  --tint-foreground: oklch(0.72 0 0); /* Muted text with preset hue tint (overridden by theme.ts) */
+
+  /* Borders & Inputs */
+  --border: oklch(0.26 0 0); /* Crisp, visible borders (zinc-700) */
+  --input: oklch(0.26 0 0);
+  --ring: oklch(0.85 0 0); /* Focus ring */
+
+  /* Actions */
+  --primary: oklch(0.98 0 0); /* High-contrast primary action */
+  --primary-foreground: oklch(0.09 0 0);
+  --secondary: oklch(0.20 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
+  --accent: oklch(0.22 0 0); /* Clear hover & active state highlight */
+  --accent-foreground: oklch(0.98 0 0);
+
+  /* States */
+  --destructive: oklch(0.55 0.15 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --success: oklch(0.70 0.17 162);
+  --warning: oklch(0.79 0.18 85);
+  --info: oklch(0.70 0.16 237);
+}
+
+.light {
+  /* Core surfaces */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.09 0 0);
+  --card: oklch(0.97 0 0);
+  --card-foreground: oklch(0.09 0 0);
+  --popover: oklch(0.97 0 0);
+  --popover-foreground: oklch(0.09 0 0);
+
+  /* Subtle / Muted */
+  --muted: oklch(0.94 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --tint-foreground: oklch(0.45 0 0);
+
+  /* Borders & Inputs */
+  --border: oklch(0.89 0 0);
+  --input: oklch(0.89 0 0);
+  --ring: oklch(0.20 0 0);
+
+  /* Actions */
+  --primary: oklch(0.09 0 0);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.94 0 0);
+  --secondary-foreground: oklch(0.09 0 0);
+  --accent: oklch(0.94 0 0);
+  --accent-foreground: oklch(0.09 0 0);
+
+  /* States */
+  --destructive: oklch(0.55 0.15 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --success: oklch(0.55 0.14 162);
+  --warning: oklch(0.65 0.18 70);
+  --info: oklch(0.55 0.16 237);
+}
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Lilex', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--tint-foreground);
+  --color-tint-foreground: var(--tint-foreground);
+  --color-card-inner: var(--muted);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  svg {
+    color: inherit;
+    transition: color 0.2s ease, fill 0.2s ease, stroke 0.2s ease;
+  }
+}
+
+/* Disable all transitions during theme application to prevent flicker.
+   Toggled by applyThemeConfig() in lib/theme.ts. */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition: none !important;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  overflow: hidden;
+}
+
+/* Reusable section label component (Lilex mono) */
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Lilex', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  line-height: 1.15;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+/* Standardized preset tint text utility */
+.tint-text {
+  color: var(--color-muted-foreground);
+}
+
+/* Reusable inner card box container (unified across Bookmark & Dashboard) */
+.card-inner-box {
+  border-radius: var(--radius-md, 0.375rem);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-border);
+  background-color: var(--color-muted);
+}
+
+/* Reusable inner card tile for site icons / buttons */
+.card-inner-tile {
+  border-radius: var(--radius-md, 0.375rem);
+  border-width: 1px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--color-border) 60%, transparent);
+  background-color: var(--color-muted);
+  transition: all 0.15s ease-in-out;
+}
+.card-inner-tile:hover {
+  background-color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-ring) 40%, transparent);
+}
+
+/* Smooth fluid marquee for long titles: text scrolls, fades at both edges
+   via mask gradient. Only animates on hover when text overflows. */
+.marquee {
+  overflow: hidden;
+  max-width: 100%;
+}
+.marquee.has-overflow {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.marquee.has-overflow:hover {
+  text-overflow: clip;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+}
+.marquee-inner {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.marquee.has-overflow:hover .marquee-inner.marquee-animate {
+  animation: marquee-scroll-precise var(--marquee-duration, 4s) ease-in-out infinite alternate;
+}
+@keyframes marquee-scroll-precise {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  80%, 100% {
+    transform: translateX(var(--scroll-dist, 0px));
+  }
+}
+
+/* Ultra-thin sleek scrollbars to match the dashboard aesthetic. */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted-foreground); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ==========================================
+   Radix Dialog Transitions (Fade-Up / Down)
+   ========================================== */
+.dialog-content {
+  left: 50% !important;
+  top: 50% !important;
+  translate: none !important;
+}
+
+[data-state='open'].dialog-overlay {
+  animation: dialogFadeIn 180ms ease-out forwards;
+}
+[data-state='closed'].dialog-overlay {
+  animation: dialogFadeOut 150ms ease-in forwards;
+}
+
+[data-state='open'].dialog-content {
+  animation: dialogFadeUpIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+[data-state='closed'].dialog-content {
+  animation: dialogFadeDownOut 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes dialogFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dialogFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes dialogFadeUpIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes dialogFadeDownOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.97);
+  }
+}

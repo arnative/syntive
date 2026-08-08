@@ -1,0 +1,31 @@
+name: Build Extension
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Build (Chromium)
+        working-directory: extension
+        run: bun run build
+      - name: Build (Firefox)
+        working-directory: extension
+        run: bun run build:firefox
+      - name: Package zips
+        working-directory: extension
+        run: bun run zip && bun run zip:firefox
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: syntive-zips
+          path: extension/.output/*.zip

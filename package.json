@@ -1,0 +1,23 @@
+{
+  "name": "syntive",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Syntive — bookmark sync extension (zero-knowledge E2E) for Chromium & Firefox.",
+  "workspaces": [
+    "extension",
+    "backend"
+  ],
+  "scripts": {
+    "dev:ext": "bun run --filter syntive-extension dev",
+    "dev:api": "bun run --filter syntive-backend dev",
+    "dev": "concurrently -n ext,api -c blue,green \"bun run dev:ext\" \"bun run dev:api\"",
+    "build:ext": "bun run --filter syntive-extension build",
+    "build:api": "bun run --filter syntive-backend build",
+    "zip:ext": "bun run --filter syntive-extension zip",
+    "deploy:api": "bun run --filter syntive-backend deploy",
+    "typecheck": "bun run --filter syntive-extension typecheck && bun run --filter syntive-backend typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
