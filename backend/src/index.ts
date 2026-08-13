@@ -11,6 +11,16 @@ const AUTH_RE = /^[0-9a-f]{64}$/; // 32-byte authId as 64 hex chars
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 120; // requests per authId per minute
 
+// Hard safety cap on stored blob size (D1 row limit is ~2 MB). The user-facing
+// 1 MB plaintext quota is enforced client-side; this only stops oversized pushes.
+const MAX_BLOB_BYTES = 1_900_000;
+
+// Public /stats: cached COUNT(*) from vaults (accounts that synced at least once).
+// In-memory per-isolate cache; upgrade to KV + Cron Trigger if traffic grows.
+const STATS_TTL_MS = 30 * 60_000;
+const CAPACITY_EST = 1800; // ~500 MB DB / (1 MB plaintext ≈ 270 KB blob setelah kompresi)
+let statsCache: { users: number; updatedAt: number } | null = null;
+
 // In-memory rate limit. Resets on isolate cold start; good enough for
 // an MVP. Upgrade to a Durable Object counter if abuse is observed.
 const rate = new Map<string, { count: number; reset: number }>();
@@ -52,6 +62,7 @@ export default {
 
     // Unauthenticated public routes
     if (url.pathname === "/health") return json({ ok: true });
+    if (url.pathname === "/stats") return json(await getStats(env));
     if (url.pathname === "/" && request.method === "GET") {
       return json({
         qrisImageUrl: "https://ik.imagekit.io/byzt/BISMA/QRIS.webp",
@@ -97,6 +108,7 @@ async function putVault(env: Env, authId: string, deviceId: string | null, body:
   const blob = typeof body?.blob === "string" && body.blob.length > 0 ? body.blob : null;
   const expectedVersion = Number(body?.expectedVersion);
   if (!blob || !Number.isInteger(expectedVersion) || expectedVersion < 0) return json({ error: "invalid payload" }, 422);
+  if (blob.length > MAX_BLOB_BYTES) return json({ error: "storage_quota_exceeded" }, 413);
   const now = Date.now();
 
   // If vault exists and version > 0, verify the device is not revoked
@@ -158,4 +170,14 @@ async function removeDevice(env: Env, authId: string, deviceId: string | null): 
   await env.DB.prepare("DELETE FROM devices WHERE auth_id = ? AND device_id = ?")
     .bind(authId, deviceId).run();
   return json({ ok: true });
+}
+
+async function getStats(env: Env): Promise<{ users: number; capacity: number }> {
+  const now = Date.now();
+  if (statsCache && now - statsCache.updatedAt < STATS_TTL_MS) {
+    return { users: statsCache.users, capacity: CAPACITY_EST };
+  }
+  const row = await env.DB.prepare("SELECT COUNT(*) AS users FROM vaults").first<{ users: number }>();
+  statsCache = { users: row?.users ?? 0, updatedAt: now };
+  return { users: statsCache.users, capacity: CAPACITY_EST };
 }

@@ -56,3 +56,15 @@ export async function upsertDevice(authId: string, deviceId: string, label: stri
 export async function removeDevice(authId: string, deviceId: string): Promise<void> {
   await req(`/device?device_id=${encodeURIComponent(deviceId)}`, authId, { method: 'DELETE' });
 }
+
+// Public endpoints (no auth). Used by the About tab for server status.
+export async function checkHealth(): Promise<boolean> {
+  try { return (await fetch(`${BASE}/health`)).ok; } catch { return false; }
+}
+
+export async function getServerStats(): Promise<{ users: number; capacity: number } | null> {
+  try {
+    const res = await fetch(`${BASE}/stats`);
+    return res.ok ? res.json() : null;
+  } catch { return null; }
+}

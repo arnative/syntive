@@ -31,7 +31,7 @@ const NOISEKUN_SOUNDS = [
 // Persistent Module-Level Audio Singleton for Nature Radio
 const globalNatureAudioMap = new Map<string, HTMLAudioElement>();
 let globalNatureIsPlaying = false;
-let globalNatureVolume = 0.2;
+let globalNatureVolume = 0.1;
 let globalNatureIsMuted = false;
 let globalNatureActiveSoundIds: string[] = ['storm', 'bird'];
 
@@ -224,6 +224,9 @@ export function NatureRadioWidget({ dragHandle }: { dragHandle: React.ReactNode 
             onValueChange={handleVolumeChange}
             className="flex-1"
           />
+          <span className="w-8 text-right text-[10px] tint-text font-mono tabular-nums">
+            {Math.round((globalNatureIsMuted ? 0 : globalNatureVolume) * 100)}%
+          </span>
         </div>
       </div>
     </DashboardCard>

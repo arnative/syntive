@@ -131,6 +131,18 @@ async function countLocalBookmarks(): Promise<number> {
   }
 }
 
+// Free-tier quota: 1 MB of plaintext bookmark data per account.
+// Server can't measure plaintext (blobs are encrypted), so this is enforced
+// client-side for UX; the backend only enforces a hard blob-size safety cap.
+export const QUOTA_PLAINTEXT_BYTES = 1_000_000;
+
+// Current plaintext size of the vault (what would be pushed on next sync).
+export async function measurePlaintextBytes(): Promise<number> {
+  const tree = await serializeToolbar();
+  const trash = await getTrashItems();
+  return new TextEncoder().encode(JSON.stringify({ tree, trash })).length;
+}
+
 // Guard against concurrent syncNow() calls (alarm + popup click firing together).
 let syncing = false;
 

@@ -188,7 +188,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
         )}
 
         {/* 30-Day Auto Cleanup InfoCircle Alert Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl border border-primary/20 bg-primary/5 text-xs backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border bg-primary/5 text-xs">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="p-1.5 rounded-xl bg-primary/10 text-primary shrink-0">
               <Clock className="h-4 w-4" />

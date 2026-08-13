@@ -25,7 +25,7 @@ const QURAN_RADIO_STORAGE_KEY = 'syntive.quranRadioQari';
 let globalQuranAudio: HTMLAudioElement | null = null;
 let globalQuranIsPlaying = false;
 let globalQuranIsLoading = false;
-let globalQuranVolume = 0.2;
+let globalQuranVolume = 0.1;
 let globalQuranIsMuted = false;
 let globalQuranSelectedId = (() => {
   if (typeof window !== 'undefined') {
@@ -221,6 +221,9 @@ export function QuranRadioWidget({ dragHandle }: { dragHandle: React.ReactNode }
             onValueChange={handleVolumeChange}
             className="flex-1"
           />
+          <span className="w-8 text-right text-[10px] tint-text font-mono tabular-nums">
+            {Math.round((globalQuranIsMuted ? 0 : globalQuranVolume) * 100)}%
+          </span>
         </div>
       </div>
     </DashboardCard>

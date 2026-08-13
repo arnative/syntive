@@ -5,13 +5,20 @@ import { Panel } from '@/components/ui/panel';
 import { AlertBox } from '@/components/ui/alert-box';
 import { MutedText } from '@/components/ui/muted-text';
 import { SettingField } from '../SettingField';
-import { toolbarId } from '@/lib/sync';
+import { toolbarId, measurePlaintextBytes, QUOTA_PLAINTEXT_BYTES } from '@/lib/sync';
 import { KEYS } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 export function SettingsStorageTab() {
   const { t } = useTranslation();
+  const [usageBytes, setUsageBytes] = React.useState<number | null>(null);
   const [importing, setImporting] = React.useState(false);
   const [importSuccess, setImportSuccess] = React.useState(false);
   const [importError, setImportError] = React.useState(false);
@@ -84,8 +91,40 @@ export function SettingsStorageTab() {
     }
   };
 
+  React.useEffect(() => {
+    let cancelled = false;
+    measurePlaintextBytes()
+      .then((b) => { if (!cancelled) setUsageBytes(b); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const pct = usageBytes === null ? 0 : Math.min(100, Math.round((usageBytes / QUOTA_PLAINTEXT_BYTES) * 100));
+
   return (
     <div className="space-y-6">
+      {/* Storage Quota */}
+      <SettingField
+        label={t('storageQuotaLabel')}
+        description={t('storageQuotaDesc')}
+      >
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground">
+              {usageBytes === null ? '…' : formatBytes(usageBytes)}
+            </span>
+            <span className="tint-text">
+              {usageBytes === null ? '…' : `${pct}%`} · {QUOTA_PLAINTEXT_BYTES / 1_000_000} MB
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-border/50">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      </SettingField>
       <SettingField
         label={t('backupRecoveryLabel')}
         description={t('backupRecoveryDesc')}

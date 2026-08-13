@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Panel } from '@/components/ui/panel';
 import { MutedText } from '@/components/ui/muted-text';
 import { useTranslation } from '@/lib/i18n';
+import { checkHealth, getServerStats } from '@/lib/api';
 import logoIcon from '@/assets/logo-icon.svg';
 
 export function SettingsAboutTab() {
@@ -16,6 +17,16 @@ export function SettingsAboutTab() {
     } catch {
       return '1.0.0';
     }
+  }, []);
+
+  // Live server status + registered users (public endpoints, no auth).
+  const [online, setOnline] = React.useState<boolean | null>(null);
+  const [users, setUsers] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    checkHealth().then((ok) => { if (alive) setOnline(ok); });
+    getServerStats().then((s) => { if (alive && s) setUsers(s.users); });
+    return () => { alive = false; };
   }, []);
 
   return (
@@ -42,20 +53,20 @@ export function SettingsAboutTab() {
 
       {/* Technical Architecture Highlights */}
       <div className="grid grid-cols-3 gap-2">
-        <Panel className="flex flex-col items-center justify-center p-2.5 text-center">
-          <ShieldCheck className="h-4 w-4 text-primary mb-1" />
+        <Panel className="flex flex-col items-center justify-center p-2.5 text-center space-y-0">
+          <ShieldCheck className="h-4 w-4 text-primary mb-1.5" />
           <span className="text-[10px] font-semibold text-foreground">AES-GCM 256</span>
-          <span className="text-[9px] tint-text">E2E Encrypted</span>
+          <span className="text-[9px] tint-text mt-0.5">E2E Encrypted</span>
         </Panel>
-        <Panel className="flex flex-col items-center justify-center p-2.5 text-center">
-          <Cloud className="h-4 w-4 text-primary mb-1" />
+        <Panel className="flex flex-col items-center justify-center p-2.5 text-center space-y-0">
+          <Cloud className="h-4 w-4 text-primary mb-1.5" />
           <span className="text-[10px] font-semibold text-foreground">Cloudflare</span>
-          <span className="text-[9px] tint-text">Database Server</span>
+          <span className="text-[9px] tint-text mt-0.5">Database Server</span>
         </Panel>
-        <Panel className="flex flex-col items-center justify-center p-2.5 text-center">
-          <Lock className="h-4 w-4 text-primary mb-1" />
+        <Panel className="flex flex-col items-center justify-center p-2.5 text-center space-y-0">
+          <Lock className="h-4 w-4 text-primary mb-1.5" />
           <span className="text-[10px] font-semibold text-foreground">Zero-Knowledge</span>
-          <span className="text-[9px] tint-text">Client-Side Privacy</span>
+          <span className="text-[9px] tint-text mt-0.5">Client-Side Privacy</span>
         </Panel>
       </div>
 
@@ -79,17 +90,22 @@ export function SettingsAboutTab() {
           </a>
         </div>
         <div className="flex justify-between items-center">
-          <span>{t('databaseServerLabel')}</span>
-          <div className="flex items-center gap-1.5">
+          <span>{t('serverStatusLabel')}</span>
+          <span className={`font-semibold flex items-center gap-1.5 ${online === false ? 'text-destructive' : 'text-foreground'}`}>
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+              {online !== false && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              )}
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${online === false ? 'bg-destructive' : 'bg-success'}`}></span>
             </span>
-            <span className="font-semibold text-foreground flex items-center gap-1">
-              <Cloud className="h-3 w-3 text-primary" />
-              <span>Cloudflare</span>
-            </span>
-          </div>
+            {online === null ? '…' : online ? t('serverOnline') : t('serverOffline')}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span>{t('userCountLabel')}</span>
+          <span className="font-semibold text-foreground">
+            {users === null ? '…' : users.toLocaleString('id-ID')}
+          </span>
         </div>
         <div className="flex justify-between items-center">
           <span>{t('licenseLabel')}</span>

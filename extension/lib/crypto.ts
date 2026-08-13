@@ -13,6 +13,10 @@ const PBKDF2_ITERS = 210_000;
 
 const encoder = new TextEncoder();
 
+// Blob format v1: gzip(JSON) -> AES-GCM -> base64, prefixed with "SYN1".
+// Blobs without the prefix are legacy (uncompressed) and still decrypt.
+const MAGIC = 'SYN1';
+
 export interface DerivedKeys {
   authId: string; // 64 hex chars — account identity / bearer
   encKey: CryptoKey; // AES-GCM
@@ -35,22 +39,37 @@ export async function deriveKeys(mnemonic: string): Promise<DerivedKeys> {
   return { authId, encKey };
 }
 
+async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
+  const s = new Blob([bytes as BlobPart]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+
+async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
+  const s = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+
 export async function encryptJSON(data: unknown, encKey: CryptoKey): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const plaintext = encoder.encode(JSON.stringify(data));
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, encKey, plaintext);
-  // Prepend IV (12 bytes) to ciphertext so decryption can split it back out.
-  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(ciphertext), iv.length);
+  // Compress BEFORE encrypting — ciphertext is incompressible.
+  const compressed = await gzip(encoder.encode(JSON.stringify(data)));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, encKey, compressed as BufferSource);
+  // [SYN1][IV 12B][ciphertext] -> base64
+  const combined = new Uint8Array(MAGIC.length + iv.length + ciphertext.byteLength);
+  combined.set(encoder.encode(MAGIC), 0);
+  combined.set(iv, MAGIC.length);
+  combined.set(new Uint8Array(ciphertext), MAGIC.length + iv.length);
   return bytesToBase64(combined);
 }
 
 export async function decryptJSON<T>(blob: string, encKey: CryptoKey): Promise<T> {
-  const combined = base64ToBytes(blob);
-  const iv = combined.slice(0, 12);
-  const ciphertext = combined.slice(12);
-  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, encKey, ciphertext);
+  const raw = base64ToBytes(blob);
+  const v1 = new TextDecoder().decode(raw.slice(0, 4)) === MAGIC;
+  const off = v1 ? 4 : 0; // legacy blobs have no prefix
+  const iv = raw.slice(off, off + 12);
+  const ciphertext = raw.slice(off + 12);
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, encKey, ciphertext);
+  const plaintext = v1 ? await gunzip(new Uint8Array(decrypted)) : new Uint8Array(decrypted);
   return JSON.parse(new TextDecoder().decode(plaintext)) as T;
 }
 
