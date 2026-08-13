@@ -1,8 +1,11 @@
+<img src="design/Syntive_hero.webp" alt="Syntive Hero" width="100%">
+
+[Indonesia](README.md) · [English](README.en.md)
+
 # Syntive
+Ekstensi sinkronisasi bookmark untuk Chromium & Firefox — terenkripsi end-to-end **zero-knowledge**. Bookmark Anda dienkripsi di browser sebelum menyentuh server. Server (Cloudflare Worker + D1) hanya menyimpan blok terenkripsi yang tidak dapat dibaca.
 
-> Ekstensi sinkronisasi bookmark untuk Chromium & Firefox — terenkripsi end-to-end **zero-knowledge**. Bookmark Anda dienkripsi di browser sebelum menyentuh server. Server (Cloudflare Worker + D1) hanya menyimpan blok terenkripsi yang tidak dapat dibaca.
 
-[English](README.en.md)
 
 ## Fitur
 
