@@ -2,6 +2,7 @@
   "name": "syntive",
   "version": "1.2.1",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Syntive — bookmark sync extension (zero-knowledge E2E) for Chromium & Firefox.",
   "workspaces": [
     "extension",
