@@ -1,13 +1,16 @@
-// Syntive sync engine — last-write-wins per device.
+// Syntive sync engine — last-write-wins per device, with merge-on-pull.
 //
 // Model: the browser's bookmark *toolbar* subtree is serialized to a plain tree,
 // encrypted (AES-GCM) and pushed as a single blob. The server only stores the
-// latest version. On pull we wipe the toolbar and rebuild from the decrypted tree.
+// latest version. On pull we MERGE the cloud tree with the local toolbar
+// (instead of wiping it): local bookmarks/folders not already in the cloud are
+// kept and pushed back, so a fresh install with pre-existing local bookmarks
+// does not lose them on first sync.
 //
-// Conflict policy (user-approved): whichever device pushes last wins; unpushed
-// local edits on a device that then pulls are overwritten. Tracked via a "dirty"
-// flag set by bookmark change listeners.
-// Single blob per account, not per-item merge. Upgrade to granular
+// Conflict policy: whichever device pushes last wins for the items it carries;
+// unpushed local edits on a device that then pulls are merged into the cloud
+// tree rather than dropped. Tracked via a "dirty" flag set by bookmark change
+// listeners. Single blob per account, not per-item merge. Upgrade to granular
 // merge if multi-user concurrent editing is ever needed.
 
 import { encryptJSON, decryptJSON } from './crypto';
@@ -92,6 +95,33 @@ function countBookmarks(node: TreeNode): number {
   return (node.children ?? []).reduce((n, c) => n + countBookmarks(c), 0);
 }
 
+// Merge `additions` into `base` without duplicates.
+// Bookmarks dedup by url; folders dedup by title and merge children recursively.
+// Returns a new array; inputs are not mutated.
+function mergeChildren(base: TreeNode[], additions: TreeNode[]): TreeNode[] {
+  const result: TreeNode[] = base.map((n) => ({
+    ...n,
+    children: n.children ? n.children.map((c) => ({ ...c })) : undefined,
+  }));
+  for (const add of additions) {
+    if (add.url) {
+      const exists = result.some((n) => n.url === add.url);
+      if (!exists) result.push({ ...add });
+    } else {
+      const existing = result.find((n) => !n.url && n.title === add.title);
+      if (existing) {
+        existing.children = mergeChildren(existing.children ?? [], add.children ?? []);
+      } else {
+        result.push({
+          ...add,
+          children: add.children ? add.children.map((c) => ({ ...c })) : [],
+        });
+      }
+    }
+  }
+  return result;
+}
+
 async function countLocalBookmarks(): Promise<number> {
   try {
     const tree = await serializeToolbar();
@@ -129,10 +159,19 @@ export async function syncNow(): Promise<SyncStatus> {
     let trashItems = await getTrashItems();
 
     if (server.version > localKnown) {
-      // Server is newer → pull vault from database and replace local toolbar.
+      // Server is newer → pull vault and MERGE with local toolbar.
+      // Local bookmarks/folders not already in the cloud are kept and pushed
+      // back, so a fresh install with pre-existing local bookmarks does not
+      // lose them on first sync.
       if (server.blob) {
         const doc = await decryptJSON<{ tree: TreeNode; trash?: TrashItem[] }>(server.blob, session.encKey);
-        
+        const cloudChildren = doc.tree.children ?? [];
+        const localChildren = tree.children ?? [];
+        const mergedChildren = mergeChildren(cloudChildren, localChildren);
+        const cloudCount = cloudChildren.reduce((n, c) => n + countBookmarks(c), 0);
+        const mergedCount = mergedChildren.reduce((n, c) => n + countBookmarks(c), 0);
+        const localAddedSomething = mergedCount > cloudCount;
+
         // Merge or update trash items
         if (doc.trash) {
           const remoteTrashMap = new Map(doc.trash.map((t) => [t.id, t]));
@@ -146,20 +185,45 @@ export async function syncNow(): Promise<SyncStatus> {
           trashItems = mergedTrash;
         }
 
-        // Pull server tree: overwrite local toolbar
+        // Apply merged tree to local toolbar
         suppress = true;
         try {
           await clearToolbar();
-          await restoreTree(toolbarId(), doc.tree.children ?? []);
+          await restoreTree(toolbarId(), mergedChildren);
         } finally {
           suppress = false;
         }
         tree = await serializeToolbar();
-        await setVersion(server.version);
+
+        let pushConflict = false;
+        if (localAddedSomething) {
+          // Local contributed new items → push merged tree back to cloud so
+          // other devices receive them too. Optimistic lock on server.version.
+          try {
+            const blob = await encryptJSON({ tree, trash: trashItems }, session.encKey);
+            const res = await putVault(authId, blob, server.version);
+            await setVersion(res.version);
+          } catch (err) {
+            if (err instanceof ConflictError) {
+              // Another device pushed first. Keep dirty=true so the next sync
+              // re-merges against the new server version instead of dropping
+              // the local items we just restored.
+              pushConflict = true;
+              await setVersion(server.version);
+            } else {
+              throw err;
+            }
+          }
+        } else {
+          await setVersion(server.version);
+        }
+        // Only clear dirty when the merge+push fully succeeded. On conflict,
+        // leave dirty=true so the next sync re-merges local items.
+        if (!pushConflict) await setDirty(false);
       } else {
         await setVersion(server.version);
+        await setDirty(false);
       }
-      await setDirty(false);
     } else if (dirty || server.version === 0) {
       // Local has changes (or first ever push) → push with optimistic lock.
       // Server controls version increment; we send what we read as expectedVersion.

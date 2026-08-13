@@ -28,7 +28,10 @@ export function SettingsSecurityTab({
 
   return (
     <div className="space-y-6">
-      <SettingField label={t('secretKeyLabel')}>
+      <SettingField
+        label={t('secretKeyLabel')}
+        description={t('secretKeyDesc')}
+      >
         <div className="relative flex items-center bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono select-none break-all pr-24 min-h-10">
           <span className={showing ? 'text-(--color-foreground) font-medium select-text' : 'text-(--color-muted-foreground)/40 tracking-wider font-sans select-none'}>
             {showing ? mnemonic : '•••• •••• •••• •••• •••• •••• •••• •••• •••• •••• •••• ••••'}
@@ -71,12 +74,13 @@ export function SettingsSecurityTab({
       <div className="pt-1">
         <Button
           type="button"
+          variant="outline"
           onClick={onDownload}
           className={cn(
-            'w-full h-9 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-2',
+            'w-full h-9 text-xs font-semibold rounded-xl transition-all cursor-pointer',
             downloaded
               ? 'bg-success/10 text-success border-success/30'
-              : 'bg-background hover:bg-accent text-foreground border-border'
+              : 'hover:bg-accent'
           )}
         >
           {downloaded ? <CheckCircle className="h-4 w-4" /> : <Download className="h-4 w-4" />}

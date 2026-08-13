@@ -50,10 +50,10 @@ interface WidgetConfig {
 }
 
 const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
-  { id: 'topSites', nameKey: 'widgetTopSitesTitle', enabled: true },
-  { id: 'favoriteSites', nameKey: 'widgetFavoriteSitesTitle', enabled: true },
   { id: 'clock', nameKey: 'widgetClockTitle', enabled: true },
   { id: 'stats', nameKey: 'widgetStatsTitle', enabled: true },
+  { id: 'favoriteSites', nameKey: 'widgetFavoriteSitesTitle', enabled: true },
+  { id: 'topSites', nameKey: 'widgetTopSitesTitle', enabled: true },
   { id: 'notes', nameKey: 'widgetNotesTitle', enabled: false },
   { id: 'todo', nameKey: 'widgetTodoTitle', enabled: false },
   { id: 'quote', nameKey: 'widgetQuoteTitle', enabled: false },

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Pen, Trash2, Folder as FolderIcon, FolderBookmark, Check, Menu4 } from 'reicon-react';
-import { DeleteAction } from '@/components/ui/delete-action';
+import { HoverAction } from '@/components/ui/hover-action';
 import type { Bm } from './useBookmarks';
 import { DashboardCard } from '@/components/dashboard/DashboardCard';
 import { Button } from '@/components/ui/button';
@@ -369,7 +369,7 @@ export function FolderBookmarkRow({
       )}
       {isSubfolder ? (
         <button
-          className="flex min-w-0 flex-1 items-center gap-2 text-xs py-0.5 text-left font-medium"
+          className="flex min-w-0 flex-1 items-center gap-2 text-xs py-0.5 pr-3 text-left font-medium group-hover/item:pr-14"
           onClick={(e) => { e.stopPropagation(); onNavigate?.(c.id); }}
           draggable="false"
         >
@@ -381,7 +381,7 @@ export function FolderBookmarkRow({
           href={c.url ?? '#'}
           target="_blank"
           rel="noreferrer"
-          className="flex min-w-0 flex-1 items-center gap-2 text-xs py-0.5 min-w-0"
+          className="flex min-w-0 flex-1 items-center gap-2 text-xs py-0.5 pr-3 group-hover/item:pr-14"
           onClick={(e) => { if (!c.url) e.preventDefault(); }}
           draggable="false"
         >
@@ -391,17 +391,19 @@ export function FolderBookmarkRow({
       )}
 
       {/* Action buttons: DnD Drag Handle + Delete Button on the right */}
-      <div className="flex items-center gap-0.5 shrink-0">
-        <button
-          {...attributes}
-          {...listeners}
-          className="p-1 rounded text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0 hover:bg-accent hover:text-primary flex items-center justify-center"
-          title={t('dragBookmarkTooltip')}
-        >
-          <Menu4 weight="Filled" className="h-3.5 w-3.5" />
-        </button>
-        <DeleteAction onClick={(e) => { e.stopPropagation(); onDeleteChild(c.id); }} title={t('deleteBookmarkTooltip')} iconSize="h-3.5 w-3.5" />
-      </div>
+      <HoverAction
+        {...attributes}
+        {...listeners}
+        icon={<Menu4 weight="Filled" className="h-3.5 w-3.5" />}
+        title={t('dragBookmarkTooltip')}
+        className="right-8 p-1 hover:bg-accent hover:text-primary cursor-grab active:cursor-grabbing"
+      />
+      <HoverAction
+        icon={<Trash2 className="h-3.5 w-3.5" weight="Filled" />}
+        onClick={(e) => { e.stopPropagation(); onDeleteChild(c.id); }}
+        title={t('deleteBookmarkTooltip')}
+        className="right-2 hover:text-destructive"
+      />
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import * as React from 'react';
-import { CloudRain, Radio, QuoteUp, BookOpen, Heart, ArrowUpRight } from 'reicon-react';
+import { CloudRain, Radio, QuoteUp, BookOpen, Heart } from 'reicon-react';
 import { Panel } from '@/components/ui/panel';
+import { Badge } from '@/components/ui/badge';
+import { MutedText } from '@/components/ui/muted-text';
+import { SettingsTabHeader } from '../SettingField';
 import type { TranslationKey } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n';
 
@@ -16,23 +19,19 @@ export function SettingsCreditsTab() {
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-3.5">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header Title */}
-      <div className="border-b border-border pb-3">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-foreground">
-          {t('creditsTitle')}
-        </h3>
-        <p className="text-[10px] tint-text mt-1 leading-relaxed">
-          {t('creditsSubtitle')}
-        </p>
-      </div>
+      <SettingsTabHeader
+        title={t('creditsTitle')}
+        description={t('creditsSubtitle')}
+      />
 
       {/* Credits Cards List */}
-      <div className="space-y-2 max-h-122.5 overflow-y-auto pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
         {CREDITS.map((credit) => {
           const Icon = credit.icon;
           return (
-            <Panel key={credit.href} className="p-2.5 space-y-1 flex items-start gap-3 transition-colors hover:border-primary/40">
+            <Panel key={credit.href} hoverable className="p-2.5 space-y-1 flex items-start gap-3">
               <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5 text-primary">
                 <Icon className="h-4 w-4" />
               </div>
@@ -43,15 +42,16 @@ export function SettingsCreditsTab() {
                     href={credit.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[10px] font-mono text-primary hover:underline flex items-center gap-1 shrink-0"
+                    className="shrink-0"
                   >
-                    <span>{t(credit.sourceKey)}</span>
-                    <ArrowUpRight className="h-2.5 w-2.5 opacity-60" />
+                    <Badge color="accent" compact className="font-mono hover:bg-accent/70">
+                      {t(credit.sourceKey)}
+                    </Badge>
                   </a>
                 </div>
-                <p className="text-[10px] tint-text mt-0.5 leading-relaxed">
+                <MutedText size="2xs" className="mt-0.5">
                   {t(credit.descKey)}
-                </p>
+                </MutedText>
               </div>
             </Panel>
           );

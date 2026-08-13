@@ -232,10 +232,10 @@ export function SettingsModal({ open, onOpenChange, onLabelChange, onLogout }: S
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-180 w-[95vw] h-155 max-h-[92vh] bg-card border-border text-foreground rounded-2xl p-0 flex flex-col overflow-hidden gap-0">
+      <DialogContent className="sm:max-w-200 w-[95vw] h-155 max-h-[92vh] bg-card border-border text-foreground rounded-2xl p-0 flex flex-col overflow-hidden gap-0">
         {/* Header Bar */}
-        <DialogHeader className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0 bg-background/40">
-          <DialogTitle className="text-sm font-medium tracking-wider text-foreground uppercase flex items-center gap-2">
+        <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-background/40">
+          <DialogTitle className="text-sm font-medium tracking-wider text-foreground flex items-center gap-2">
             <span>{t('settingsModalTitle')}</span>
           </DialogTitle>
         </DialogHeader>

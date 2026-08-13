@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Download, Upload } from 'reicon-react';
+import { Download, Upload, ShieldAlert, CheckCircle } from 'reicon-react';
 import { Button } from '@/components/ui/button';
 import { Panel } from '@/components/ui/panel';
+import { AlertBox } from '@/components/ui/alert-box';
 import { MutedText } from '@/components/ui/muted-text';
 import { SettingField } from '../SettingField';
 import { toolbarId } from '@/lib/sync';
@@ -13,6 +14,8 @@ export function SettingsStorageTab() {
   const { t } = useTranslation();
   const [importing, setImporting] = React.useState(false);
   const [importSuccess, setImportSuccess] = React.useState(false);
+  const [importError, setImportError] = React.useState(false);
+  const [cacheCleared, setCacheCleared] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleExportBookmarks = async () => {
@@ -35,6 +38,7 @@ export function SettingsStorageTab() {
     const file = e.target.files?.[0];
     if (!file) return;
     setImporting(true);
+    setImportError(false);
     try {
       const text = await file.text();
       const data = JSON.parse(text);
@@ -65,7 +69,7 @@ export function SettingsStorageTab() {
       setTimeout(() => setImportSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to import bookmarks:', err);
-      alert(t('importError'));
+      setImportError(true);
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -75,7 +79,8 @@ export function SettingsStorageTab() {
   const handleClearCache = async () => {
     if (confirm(t('clearCacheConfirm'))) {
       await browser.storage.local.remove([KEYS.version, KEYS.lastSync, 'syntive.dirty']);
-      alert(t('clearCacheSuccess'));
+      setCacheCleared(true);
+      setTimeout(() => setCacheCleared(false), 3000);
     }
   };
 
@@ -85,7 +90,7 @@ export function SettingsStorageTab() {
         label={t('backupRecoveryLabel')}
         description={t('backupRecoveryDesc')}
       >
-        <div className="grid grid-cols-2 gap-3 mt-2">
+        <div className="grid grid-cols-2 gap-3">
           {/* Export Box */}
           <Panel className="flex flex-col justify-between">
             <div className="space-y-1">
@@ -131,6 +136,11 @@ export function SettingsStorageTab() {
             </Button>
           </Panel>
         </div>
+        {importError && (
+          <AlertBox icon={<ShieldAlert className="h-4 w-4 text-destructive" />}>
+            <span className="text-destructive">{t('importError')}</span>
+          </AlertBox>
+        )}
       </SettingField>
 
       {/* Reset Cache */}
@@ -146,6 +156,11 @@ export function SettingsStorageTab() {
         >
           {t('clearLocalCacheBtn')}
         </Button>
+        {cacheCleared && (
+          <AlertBox variant="info" icon={<CheckCircle className="h-4 w-4 text-primary" />}>
+            {t('clearCacheSuccess')}
+          </AlertBox>
+        )}
       </SettingField>
     </div>
   );

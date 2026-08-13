@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { CheckSquare, Plus } from 'reicon-react';
+import { CheckSquare, Plus, Trash2 } from 'reicon-react';
 import { DashboardCard } from '../DashboardCard';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DeleteAction } from '@/components/ui/delete-action';
+import { HoverAction } from '@/components/ui/hover-action';
 import { Input } from '@/components/ui/input';
 import { useLocalStorageState } from '@/lib/hooks';
 import { useTranslation } from '@/lib/i18n';
@@ -77,9 +77,9 @@ export function TodoWidget({ dragHandle }: { dragHandle: React.ReactNode }) {
             todos.map((item) => (
               <div
                 key={item.id}
-                className="group/item flex items-center justify-between h-8.5 px-2.5 py-1 rounded-lg hover:bg-accent/40 transition-colors text-xs select-none"
+                className="group/item relative flex items-center justify-between h-8.5 px-2.5 py-1 rounded-lg hover:bg-accent/40 transition-colors text-xs select-none"
               >
-                <label className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1">
+                <label className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1 group-hover/item:pr-8">
                   <Checkbox
                     checked={item.completed}
                     onCheckedChange={() => toggleTodo(item.id)}
@@ -94,7 +94,12 @@ export function TodoWidget({ dragHandle }: { dragHandle: React.ReactNode }) {
                     {item.text}
                   </span>
                 </label>
-                <DeleteAction onClick={() => removeTodo(item.id)} iconSize="h-3 w-3" />
+                <HoverAction
+                  icon={<Trash2 className="h-3 w-3" />}
+                  onClick={() => removeTodo(item.id)}
+                  title={t('deleteBookmarkTooltip')}
+                  className="right-2 hover:text-destructive"
+                />
               </div>
             ))
           )}

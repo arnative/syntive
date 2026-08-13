@@ -15,6 +15,7 @@ import {
 import { toolbarId } from '@/components/bookmark/useBookmarks';
 import { computeBookmarkStats } from '@/lib/bookmarkStats';
 import { SettingsModal } from '@/components/modals/SettingsModal';
+import { SettingSectionTitle } from '@/components/modals/SettingField';
 import { SupportModal } from '@/components/modals/SupportModal';
 import { Header } from './Header';
 import { DashboardView } from '@/components/dashboard/DashboardView';
@@ -302,12 +303,15 @@ function SidebarFooter({
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-2 w-full">
-        <SidebarNavItem
-          icon={<Heart className="h-4.5 w-4.5 text-destructive fill-destructive/20" />}
-          label={t('headerSupport')}
+        <Button
+          variant="outline"
+          size="icon"
           onClick={onOpenSupport}
-          collapsed={true}
-        />
+          title={t('headerSupport')}
+          className="h-9 w-9"
+        >
+          <Heart className="h-4.5 w-4.5 text-destructive fill-destructive/20" />
+        </Button>
         <IconButton
           variant="ghost"
           size="lg"
@@ -323,13 +327,14 @@ function SidebarFooter({
 
   return (
     <div className="flex items-center justify-between gap-1 w-full">
-      <SidebarNavItem
-        icon={<Heart className="h-4.5 w-4.5 text-destructive fill-destructive/20" />}
-        label={t('headerSupport')}
+      <Button
+        variant="outline"
         onClick={onOpenSupport}
-        collapsed={false}
-        className="flex-1 text-destructive hover:text-destructive"
-      />
+        className="text-destructive"
+      >
+        <Heart className="h-4.5 w-4.5 text-destructive fill-destructive/20" />
+        {t('headerSupport')}
+      </Button>
       <div className="flex items-center gap-1">
         <IconButton
           variant="ghost"
@@ -495,55 +500,72 @@ function DashboardContent({ onLogout }: { onLogout: () => void }) {
             onToggleCollapse={toggleSidebarCollapse}
           />
 
-          {/* Navigation Menu */}
-          <nav className={cn('space-y-1 w-full flex flex-col', sidebarCollapsed && 'items-center')}>
-            <SidebarNavItem
-              icon={<Home className="h-4.5 w-4.5" />}
-              label={t('navDashboard')}
-              isActive={activeTab === 'dashboard'}
-              onClick={() => setActiveTab('dashboard')}
-              collapsed={sidebarCollapsed}
-            />
-            <SidebarNavItem
-              icon={<Bookmark className="h-4.5 w-4.5" />}
-              label={t('navBookmark')}
-              isActive={activeTab === 'bookmark'}
-              onClick={() => setActiveTab('bookmark')}
-              collapsed={sidebarCollapsed}
-            />
-            <SidebarNavItem
-              icon={<Library className="h-4.5 w-4.5" />}
-              label={t('navOrganize')}
-              isActive={activeTab === 'organize'}
-              onClick={() => setActiveTab('organize')}
-              collapsed={sidebarCollapsed}
-            />
-          </nav>
+          {/* Group: Utama */}
+          <div className={cn('w-full flex flex-col gap-1.5', sidebarCollapsed && 'items-center')}>
+            {!sidebarCollapsed && (
+              <SettingSectionTitle className="px-3.5 select-none font-semibold">
+                {t('navGroupMain')}
+              </SettingSectionTitle>
+            )}
+            <nav className={cn('space-y-1 w-full flex flex-col', sidebarCollapsed && 'items-center')}>
+              <SidebarNavItem
+                icon={<Home className="h-4.5 w-4.5" />}
+                label={t('navDashboard')}
+                isActive={activeTab === 'dashboard'}
+                onClick={() => setActiveTab('dashboard')}
+                collapsed={sidebarCollapsed}
+              />
+              <SidebarNavItem
+                icon={<Bookmark className="h-4.5 w-4.5" />}
+                label={t('navBookmark')}
+                isActive={activeTab === 'bookmark'}
+                onClick={() => setActiveTab('bookmark')}
+                collapsed={sidebarCollapsed}
+              />
+            </nav>
+          </div>
+
+          {/* Group: Kelola */}
+          <div className={cn('w-full flex flex-col gap-1.5', sidebarCollapsed && 'items-center')}>
+            {!sidebarCollapsed && (
+              <SettingSectionTitle className="px-3.5 select-none font-semibold">
+                {t('navGroupManage')}
+              </SettingSectionTitle>
+            )}
+            <nav className={cn('space-y-1 w-full flex flex-col', sidebarCollapsed && 'items-center')}>
+              <SidebarNavItem
+                icon={<Library className="h-4.5 w-4.5" />}
+                label={t('navOrganize')}
+                isActive={activeTab === 'organize'}
+                onClick={() => setActiveTab('organize')}
+                collapsed={sidebarCollapsed}
+              />
+              <SidebarNavItem
+                icon={<Trash2 className="h-4.5 w-4.5" />}
+                label={t('navTrash')}
+                isActive={activeTab === 'trash'}
+                onClick={() => setActiveTab('trash')}
+                collapsed={sidebarCollapsed}
+                badge={
+                  trashCount > 0 ? (
+                    sidebarCollapsed ? (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-white">
+                        {trashCount > 99 ? '99+' : trashCount}
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20 text-[11px] font-mono font-medium">
+                        {trashCount}
+                      </span>
+                    )
+                  ) : undefined
+                }
+              />
+            </nav>
+          </div>
         </div>
 
         {/* Sidebar Profile & Sync Box */}
         <div className={cn('w-full flex flex-col', sidebarCollapsed ? 'items-center gap-2' : 'gap-3')}>
-          <SidebarNavItem
-            icon={<Trash2 className="h-4.5 w-4.5" />}
-            label={t('navTrash')}
-            isActive={activeTab === 'trash'}
-            onClick={() => setActiveTab('trash')}
-            collapsed={sidebarCollapsed}
-            badge={
-              trashCount > 0 ? (
-                sidebarCollapsed ? (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-white">
-                    {trashCount > 99 ? '99+' : trashCount}
-                  </span>
-                ) : (
-                  <span className="px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20 text-[11px] font-mono font-medium">
-                    {trashCount}
-                  </span>
-                )
-              ) : undefined
-            }
-          />
-
           <SidebarProfileCard
             collapsed={sidebarCollapsed}
             deviceLabel={deviceLabel}

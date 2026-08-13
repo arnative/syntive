@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ShieldCheck, Cloud, Lock, ArrowUpRight } from 'reicon-react';
+import { ShieldCheck, Cloud, Lock } from 'reicon-react';
 import { Badge } from '@/components/ui/badge';
 import { Panel } from '@/components/ui/panel';
 import { MutedText } from '@/components/ui/muted-text';
@@ -19,9 +19,9 @@ export function SettingsAboutTab() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header Branding with Logo */}
-      <div className="flex items-center gap-3.5 border-b border-border pb-4">
+      <div className="flex items-center gap-3.5 pb-3">
         <div className="h-11 w-11 rounded-xl bg-background border border-border flex items-center justify-center shrink-0 p-2">
           <img
             src={logoIcon}
@@ -42,21 +42,21 @@ export function SettingsAboutTab() {
 
       {/* Technical Architecture Highlights */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-border bg-muted/30 text-center transition-colors hover:bg-muted/50">
+        <Panel className="flex flex-col items-center justify-center p-2.5 text-center">
           <ShieldCheck className="h-4 w-4 text-primary mb-1" />
           <span className="text-[10px] font-semibold text-foreground">AES-GCM 256</span>
           <span className="text-[9px] tint-text">E2E Encrypted</span>
-        </div>
-        <div className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-border bg-muted/30 text-center transition-colors hover:bg-muted/50">
+        </Panel>
+        <Panel className="flex flex-col items-center justify-center p-2.5 text-center">
           <Cloud className="h-4 w-4 text-primary mb-1" />
           <span className="text-[10px] font-semibold text-foreground">Cloudflare</span>
           <span className="text-[9px] tint-text">Database Server</span>
-        </div>
-        <div className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-border bg-muted/30 text-center transition-colors hover:bg-muted/50">
+        </Panel>
+        <Panel className="flex flex-col items-center justify-center p-2.5 text-center">
           <Lock className="h-4 w-4 text-primary mb-1" />
           <span className="text-[10px] font-semibold text-foreground">Zero-Knowledge</span>
           <span className="text-[9px] tint-text">Client-Side Privacy</span>
-        </div>
+        </Panel>
       </div>
 
       {/* Explanation */}
@@ -76,7 +76,6 @@ export function SettingsAboutTab() {
             className="font-semibold text-foreground hover:text-primary hover:underline flex items-center gap-1"
           >
             <span>Arnative</span>
-            <ArrowUpRight className="h-3 w-3 opacity-60" />
           </a>
         </div>
         <div className="flex justify-between items-center">
@@ -105,7 +104,6 @@ export function SettingsAboutTab() {
             className="font-semibold text-primary hover:underline flex items-center gap-1"
           >
             <span>github.com/arnative/syntive</span>
-            <ArrowUpRight className="h-3 w-3 opacity-60" />
           </a>
         </div>
       </div>

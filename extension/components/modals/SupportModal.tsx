@@ -6,11 +6,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { Badge } from '@/components/ui/badge';
 import { Panel } from '@/components/ui/panel';
 import { PanelHeader } from '@/components/ui/panel-header';
 import { MutedText } from '@/components/ui/muted-text';
-import { Heart, ArrowUpRight, Qr, Globe, Copy, Check } from 'reicon-react';
+import { Heart, Qr, Globe, Copy, Check } from 'reicon-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 
@@ -100,23 +101,23 @@ export function SupportModal({ open, onOpenChange }: SupportModalProps) {
             <div className="flex items-center gap-2 pt-1">
               <Button asChild className="flex-1 bg-info hover:opacity-90 text-white rounded-xl shadow-xs">
                 <a href={paypalUrl} target="_blank" rel="noreferrer">
-                  <span>{t('openPaypalBtn')}</span>
-                  <ArrowUpRight className="h-3.5 w-3.5" />
+                  {t('openPaypalBtn')}
                 </a>
               </Button>
 
-              <Button
+              <IconButton
                 variant="outline"
-                size="icon"
+                size="md"
                 onClick={handleCopyPaypal}
                 className={cn(
-                  'h-9 w-9 rounded-xl border border-border bg-background shrink-0 cursor-pointer',
+                  'rounded-xl bg-background',
                   copiedPaypal && 'text-success border-success/30 bg-success/10'
                 )}
                 title={t('copyPaypalTooltip')}
+                aria-label={t('copyPaypalTooltip')}
               >
                 {copiedPaypal ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
+              </IconButton>
             </div>
           </Panel>
         </div>

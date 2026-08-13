@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Panel } from '@/components/ui/panel';
-import { ToggleChip } from '@/components/ui/toggle-chip';
+import { FilterGroup } from '@/components/ui/filter-group';
 import { SettingField, SettingSectionTitle } from '../SettingField';
 import { PRESET_THEMES, type ThemeConfig } from '@/lib/theme';
 import { useTranslation } from '@/lib/i18n';
@@ -33,12 +33,12 @@ export function SettingsGeneralTab({
 }: SettingsGeneralTabProps) {
   const { t } = useTranslation();
 
-  const intervals = [
-    { label: t('interval5m'), value: 5 },
-    { label: t('interval15m'), value: 15 },
-    { label: t('interval30m'), value: 30 },
-    { label: t('interval60m'), value: 60 },
-    { label: t('intervalManual'), value: 0 },
+  const intervalOptions = [
+    { label: t('interval5m'), value: '5' },
+    { label: t('interval15m'), value: '15' },
+    { label: t('interval30m'), value: '30' },
+    { label: t('interval60m'), value: '60' },
+    { label: t('intervalManual'), value: '0' },
   ];
 
   const presetSelectOptions = PRESET_THEMES.map((preset) => ({
@@ -66,18 +66,11 @@ export function SettingsGeneralTab({
         label={t('syncIntervalLabel')}
         description={t('syncIntervalDesc')}
       >
-        <div className="grid grid-cols-5 gap-1.5 bg-background border border-border p-1 rounded-xl">
-          {intervals.map((item) => (
-            <ToggleChip
-              key={item.value}
-              selected={syncInterval === item.value}
-              onClick={() => onSyncIntervalChange(item.value)}
-              className="py-1.5 text-[10px] rounded-lg border-transparent px-1"
-            >
-              {item.label}
-            </ToggleChip>
-          ))}
-        </div>
+        <FilterGroup
+          options={intervalOptions}
+          value={String(syncInterval)}
+          onValueChange={(v) => onSyncIntervalChange(Number(v))}
+        />
       </SettingField>
 
       {/* Theme Customization Section */}
@@ -87,25 +80,15 @@ export function SettingsGeneralTab({
 
           {/* Mode Selection */}
           <SettingField label={t('themeModeLabel')}>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'dark', label: t('themeDark'), icon: Moon },
-                { id: 'light', label: t('themeLight'), icon: Sun },
-                { id: 'system', label: t('themeSystem'), icon: Laptop },
-              ].map((m) => {
-                const Icon = m.icon;
-                return (
-                  <ToggleChip
-                    key={m.id}
-                    selected={themeConfig.mode === m.id}
-                    icon={<Icon className="h-3.5 w-3.5" />}
-                    onClick={() => onThemeConfigChange({ ...themeConfig, mode: m.id as ThemeConfig['mode'] })}
-                  >
-                    {m.label}
-                  </ToggleChip>
-                );
-              })}
-            </div>
+            <FilterGroup
+              options={[
+                { value: 'dark', label: t('themeDark'), icon: <Moon className="h-3.5 w-3.5" /> },
+                { value: 'light', label: t('themeLight'), icon: <Sun className="h-3.5 w-3.5" /> },
+                { value: 'system', label: t('themeSystem'), icon: <Laptop className="h-3.5 w-3.5" /> },
+              ]}
+              value={themeConfig.mode}
+              onValueChange={(v) => onThemeConfigChange({ ...themeConfig, mode: v as ThemeConfig['mode'] })}
+            />
           </SettingField>
 
           {/* Preset Dropdown */}
@@ -114,7 +97,7 @@ export function SettingsGeneralTab({
               value={themeConfig.presetId}
               onValueChange={(val) => onThemeConfigChange({ ...themeConfig, presetId: val })}
               options={presetSelectOptions}
-              placeholder="Pilih Preset Warna"
+              placeholder={t('themePresetLabel')}
             />
           </SettingField>
 

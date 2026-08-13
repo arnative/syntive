@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { History, Star } from 'reicon-react';
+import { History, Star, Eye, EyeOff } from 'reicon-react';
 import { DashboardCard } from '../DashboardCard';
 import { FaviconImage } from '@/components/ui/FaviconImage';
 import { SiteTile, AddSiteTile } from '@/components/ui/site-tile';
@@ -14,6 +14,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
+import { HoverAction } from '@/components/ui/hover-action';
 import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/lib/i18n';
 
@@ -51,7 +53,9 @@ function getCleanTitle(title: string, url: string) {
 export function TopSitesWidget({ dragHandle }: { dragHandle?: React.ReactNode }) {
   const { t } = useTranslation();
   const [topSites, setTopSites] = React.useState<SiteItem[]>([]);
+  const [hiddenTopSites, setHiddenTopSites] = useLocalStorageState<string[]>('syntive.hiddenTopSites', []);
   const [loadingTop, setLoadingTop] = React.useState(true);
+  const visibleTopSites = topSites.filter((site) => !hiddenTopSites.includes(site.url)).slice(0, 5);
 
   React.useEffect(() => {
     const fetchTopSites = async () => {
@@ -59,14 +63,14 @@ export function TopSitesWidget({ dragHandle }: { dragHandle?: React.ReactNode })
         if (typeof browser !== 'undefined' && browser.topSites?.get) {
           const sites = await browser.topSites.get();
           if (sites && sites.length > 0) {
-            setTopSites(sites.slice(0, 5));
+            setTopSites(sites);
             setLoadingTop(false);
             return;
           }
         } else if (typeof chrome !== 'undefined' && chrome.topSites?.get) {
           chrome.topSites.get((sites) => {
             if (sites && sites.length > 0) {
-              setTopSites(sites.slice(0, 5));
+              setTopSites(sites);
             } else {
               setTopSites(FALLBACK_TOP_SITES);
             }
@@ -89,7 +93,23 @@ export function TopSitesWidget({ dragHandle }: { dragHandle?: React.ReactNode })
       title={t('topSitesTitle')}
       icon={<History className="h-3.5 w-3.5 tint-text shrink-0" weight="Filled" />}
       headerBadge={t('topSitesBadge')}
-      headerAction={dragHandle}
+      headerAction={
+        <div className="flex items-center gap-1">
+          {hiddenTopSites.length > 0 && (
+            <IconButton
+              variant="ghost"
+              size="sm"
+              onClick={() => setHiddenTopSites([])}
+              title={t('show')}
+              aria-label={t('show')}
+              className="h-6 w-6"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </IconButton>
+          )}
+          {dragHandle}
+        </div>
+      }
       minHeight="h-[234px]"
     >
       <div className="pt-0 flex flex-col justify-between h-full">
@@ -101,29 +121,41 @@ export function TopSitesWidget({ dragHandle }: { dragHandle?: React.ReactNode })
           </div>
         ) : (
           <div className="card-inner-box divide-y divide-border overflow-hidden">
-            {topSites.map((site, index) => {
+            {visibleTopSites.length > 0 ? visibleTopSites.map((site) => {
               const displayTitle = getCleanTitle(site.title, site.url);
               const domain = domainOf(site.url);
 
               return (
-                <a
-                  key={index}
-                  href={site.url}
-                  className="flex items-center justify-between px-3 py-2 hover:bg-accent/40 transition-colors group/item text-xs select-none"
-                  title={site.title || site.url}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <FaviconImage url={site.url} className="h-4 w-4 object-contain shrink-0" />
-                    <span className="font-medium text-foreground truncate text-xs">
-                      {displayTitle}
+                <div key={site.url} className="relative group/item text-xs select-none">
+                  <a
+                    href={site.url}
+                    className="flex w-full min-w-0 items-center justify-between px-3 py-2 transition-colors hover:bg-accent/40 group-hover/item:pr-10"
+                    title={site.title || site.url}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <FaviconImage url={site.url} className="h-4 w-4 object-contain shrink-0" />
+                      <span className="font-medium text-foreground truncate text-xs">
+                        {displayTitle}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors shrink-0 ml-2">
+                      {domain}
                     </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-muted-foreground group-hover/item:text-primary transition-colors shrink-0 ml-2">
-                    {domain}
-                  </span>
-                </a>
+                  </a>
+                  <HoverAction
+                    icon={<EyeOff className="h-3.5 w-3.5" />}
+                    onClick={() => setHiddenTopSites((prev) => [...new Set([...prev, site.url])])}
+                    title={t('hide')}
+                    aria-label={t('hide')}
+                    className="right-1"
+                  />
+                </div>
               );
-            })}
+            }) : (
+              <div className="px-3 py-4 text-center text-[10px] tint-text">
+                {t('noTopSites')}
+              </div>
+            )}
           </div>
         )}
       </div>

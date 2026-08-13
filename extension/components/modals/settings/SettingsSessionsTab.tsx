@@ -1,9 +1,8 @@
 import { Refresh, Trash2 } from 'reicon-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ListItemCard } from '@/components/ui/list-item-card';
 import { MutedText } from '@/components/ui/muted-text';
-import { SettingSectionTitle } from '../SettingField';
+import { SettingsTabHeader } from '../SettingField';
 import type { DeviceInfo } from '@/lib/types';
 import { cn, formatSyncAgo } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
@@ -26,59 +25,95 @@ export function SettingsSessionsTab({
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <SettingSectionTitle>{t('deviceSessionsTitle')}</SettingSectionTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onReload}
-          disabled={loading}
-          className="h-6 text-[10px] text-muted-foreground hover:text-foreground gap-1 px-2"
-        >
-          <Refresh className={cn('h-3 w-3', loading && 'animate-spin')} />
-          <span>{t('reload')}</span>
-        </Button>
-      </div>
+    <div className="flex flex-col h-full min-h-0">
+      <SettingsTabHeader
+        title={t('deviceSessionsTitle')}
+        description={t('deviceSessionsSubtitle')}
+        action={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onReload}
+            disabled={loading}
+            className="h-6 text-[10px] text-muted-foreground hover:text-foreground gap-1 px-2"
+          >
+            <Refresh className={cn('h-3 w-3', loading && 'animate-spin')} />
+            <span>{t('reload')}</span>
+          </Button>
+        }
+      />
 
-      {loading ? (
-        <div className="text-[11px] tint-text py-6 text-center">{t('loadingDevices')}</div>
-      ) : devices.length === 0 ? (
-        <div className="text-[11px] tint-text py-6 text-center">{t('noDevices')}</div>
-      ) : (
-        <div className="space-y-2.5 max-h-75 overflow-y-auto pr-1">
-          {devices.map((dev) => {
-            const isCurrent = dev.device_id === currentDeviceId;
-            return (
-              <ListItemCard key={dev.device_id}>
-                <div className="flex flex-col min-w-0 pr-3">
-                  <span className="font-semibold text-foreground truncate">{dev.label}</span>
-                  <MutedText size="2xs" as="span" className="leading-none mt-1.5 font-mono">
-                    {t('activeAgo', { time: formatSyncAgo(t, dev.last_sync) })}
-                  </MutedText>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {isCurrent ? (
-                    <Badge color="emerald" compact className="uppercase tracking-wider font-medium">
-                      {t('thisDeviceBadge')}
-                    </Badge>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onTerminate(dev.device_id)}
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
-                      title={t('terminateSessionTooltip')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </ListItemCard>
-            );
-          })}
+      <div className="flex-1 min-h-0 rounded-2xl border border-border bg-card overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <table className="w-full text-left text-xs border-collapse table-fixed">
+            <thead>
+              <tr className="border-b border-border bg-background/60 tint-text font-medium select-none sticky top-0">
+                <th className="py-2.5 px-4">{t('deviceNameLabel')}</th>
+                <th className="py-2.5 px-4 w-40">{t('colLastSync')}</th>
+                <th className="py-2.5 px-4 w-28 text-center">{t('colStatus')}</th>
+                <th className="py-2.5 px-4 w-20 text-center">{t('colAction')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/40">
+              {loading && (
+                <tr>
+                  <td colSpan={4} className="py-14 px-4 text-center text-xs text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <Refresh className="h-4 w-4 animate-spin text-primary" />
+                      <span>{t('loadingDevices')}</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && devices.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-14 px-4 text-center text-xs text-muted-foreground">
+                    {t('noDevices')}
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                devices.map((dev) => {
+                  const isCurrent = dev.device_id === currentDeviceId;
+                  return (
+                    <tr key={dev.device_id} className="transition-colors hover:bg-accent/20">
+                      <td className="py-2.5 px-4 min-w-0">
+                        <span className="font-semibold text-foreground truncate block">{dev.label}</span>
+                      </td>
+                      <td className="py-2.5 px-4 w-40">
+                        <MutedText size="2xs" as="span" className="font-mono">
+                          {t('activeAgo', { time: formatSyncAgo(t, dev.last_sync) })}
+                        </MutedText>
+                      </td>
+                      <td className="py-2.5 px-4 w-28 text-center">
+                        {isCurrent ? (
+                          <Badge color="emerald" compact className="uppercase tracking-wider font-medium">
+                            {t('thisDeviceBadge')}
+                          </Badge>
+                        ) : (
+                          <span className="text-[10px] tint-text">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4 w-20 text-center">
+                        {!isCurrent && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onTerminate(dev.device_id)}
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                            title={t('terminateSessionTooltip')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
     </div>
   );
 }
