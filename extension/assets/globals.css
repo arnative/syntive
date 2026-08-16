@@ -107,6 +107,28 @@
   --info: oklch(0.55 0.16 237);
 }
 
+/* Preset-accent surface tinting: hue is derived natively from the accent
+   color via CSS relative color syntax (oklch(from <color> l c h)).
+   Enabled by applyThemeConfig() setting [data-accent] + --accent-source. */
+:root[data-accent] {
+  --background: oklch(from var(--accent-source) 0.10 0.005 h);
+  --card: oklch(from var(--accent-source) 0.14 0.008 h);
+  --popover: oklch(from var(--accent-source) 0.14 0.008 h);
+  --muted: oklch(from var(--accent-source) 0.17 0.012 h);
+  --tint-foreground: oklch(from var(--accent-source) 0.72 0.045 h);
+  --border: oklch(from var(--accent-source) 0.23 0.015 h);
+  --accent: oklch(from var(--accent-source) 0.19 0.020 h);
+}
+:root.light[data-accent] {
+  --background: oklch(from var(--accent-source) 0.99 0.004 h);
+  --card: oklch(from var(--accent-source) 0.97 0.007 h);
+  --popover: oklch(from var(--accent-source) 0.97 0.007 h);
+  --muted: oklch(from var(--accent-source) 0.93 0.010 h);
+  --tint-foreground: oklch(from var(--accent-source) 0.45 0.060 h);
+  --border: oklch(from var(--accent-source) 0.88 0.012 h);
+  --accent: oklch(from var(--accent-source) 0.94 0.014 h);
+}
+
 @theme inline {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Lilex', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;

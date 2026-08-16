@@ -25,15 +25,7 @@ interface SiteItem {
   title: string;
 }
 
-const DEFAULT_PINNED_SITES: SiteItem[] = [
-  { id: '1', title: 'YouTube', url: 'https://www.youtube.com' },
-  { id: '2', title: 'GitHub', url: 'https://github.com' },
-  { id: '3', title: 'Reddit', url: 'https://www.reddit.com' },
-  { id: '4', title: 'Gmail', url: 'https://mail.google.com' },
-  { id: '5', title: 'X', url: 'https://x.com' },
-];
-
-const FALLBACK_TOP_SITES: SiteItem[] = [
+const DEFAULT_SITES: SiteItem[] = [
   { title: 'YouTube', url: 'https://www.youtube.com' },
   { title: 'GitHub', url: 'https://github.com' },
   { title: 'Reddit', url: 'https://www.reddit.com' },
@@ -60,28 +52,16 @@ export function TopSitesWidget({ dragHandle }: { dragHandle?: React.ReactNode })
   React.useEffect(() => {
     const fetchTopSites = async () => {
       try {
-        if (typeof browser !== 'undefined' && browser.topSites?.get) {
-          const sites = await browser.topSites.get();
-          if (sites && sites.length > 0) {
-            setTopSites(sites);
-            setLoadingTop(false);
-            return;
-          }
-        } else if (typeof chrome !== 'undefined' && chrome.topSites?.get) {
-          chrome.topSites.get((sites) => {
-            if (sites && sites.length > 0) {
-              setTopSites(sites);
-            } else {
-              setTopSites(FALLBACK_TOP_SITES);
-            }
-            setLoadingTop(false);
-          });
+        const sites = await browser.topSites.get();
+        if (sites && sites.length > 0) {
+          setTopSites(sites);
+          setLoadingTop(false);
           return;
         }
       } catch (err) {
         console.warn('Failed to get top sites:', err);
       }
-      setTopSites(FALLBACK_TOP_SITES);
+      setTopSites(DEFAULT_SITES);
       setLoadingTop(false);
     };
 
@@ -168,7 +148,7 @@ export function FavoriteSitesWidget({ dragHandle }: { dragHandle?: React.ReactNo
   const { t } = useTranslation();
   const [pinnedSites, setPinnedSites] = useLocalStorageState<SiteItem[]>(
     'syntive.pinnedSites',
-    DEFAULT_PINNED_SITES,
+    DEFAULT_SITES,
   );
 
   const [page, setPage] = React.useState(1);
@@ -178,14 +158,8 @@ export function FavoriteSitesWidget({ dragHandle }: { dragHandle?: React.ReactNo
 
   const ITEMS_PER_PAGE = 8;
   // Total pages: includes room for the "+ Tambah" tile at the end
-  const totalSlots = pinnedSites.length + 1;
-  const pageCount = Math.max(1, Math.ceil(totalSlots / ITEMS_PER_PAGE));
-
-  React.useEffect(() => {
-    if (page > pageCount && pageCount > 0) {
-      setPage(pageCount);
-    }
-  }, [page, pageCount]);
+  const pageCount = Math.max(1, Math.ceil((pinnedSites.length + 1) / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, pageCount);
 
   const handleAddPinned = () => {
     if (!newTitle.trim() || !newUrl.trim()) return;
@@ -211,7 +185,7 @@ export function FavoriteSitesWidget({ dragHandle }: { dragHandle?: React.ReactNo
     setPinnedSites((prev) => prev.filter((item) => (id ? item.id !== id : item.url !== url)));
   };
 
-  const startIndex = (page - 1) * ITEMS_PER_PAGE;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const pageSites = pinnedSites.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const showAddTileOnThisPage = pageSites.length < ITEMS_PER_PAGE;
 
@@ -221,7 +195,7 @@ export function FavoriteSitesWidget({ dragHandle }: { dragHandle?: React.ReactNo
       icon={<Star className="h-3.5 w-3.5 tint-text shrink-0" weight="Filled" />}
       headerAction={
         <div className="flex items-center gap-1.5 shrink-0">
-          <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+          <Pagination page={currentPage} pageCount={pageCount} onChange={setPage} />
           {dragHandle}
         </div>
       }

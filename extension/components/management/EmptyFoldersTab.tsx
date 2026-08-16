@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyFolderItem } from '@/lib/bookmarkManagement';
 import { useScanTableState } from './ScanTableState';
+import { useTranslation } from '@/lib/i18n';
 import { moveToTrash } from '@/lib/trash';
 
 interface EmptyFoldersTabProps {
@@ -12,7 +13,6 @@ interface EmptyFoldersTabProps {
   selectedEmptyFolderIds: Set<string>;
   setSelectedEmptyFolderIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   pageData: EmptyFolderItem[];
-  language: string;
   hasScanned: boolean;
   isScanning: boolean;
   handleScanEmpty: () => void;
@@ -23,17 +23,12 @@ export function EmptyFoldersTab({
   selectedEmptyFolderIds,
   setSelectedEmptyFolderIds,
   pageData,
-  language,
   hasScanned,
   isScanning,
   handleScanEmpty,
 }: EmptyFoldersTabProps) {
-  const placeholder = useScanTableState(hasScanned, isScanning, emptyFolders.length, language, {
-    subtitleId: 'Klik tombol Pindai untuk menganalisis folder kosong Anda.',
-    subtitleEn: 'Click Scan to analyze your empty folders.',
-    emptyId: 'Tidak Ada Folder Kosong Ditemukan!',
-    emptyEn: 'No Empty Folders Found!',
-  });
+  const { t } = useTranslation();
+  const placeholder = useScanTableState(hasScanned, isScanning, emptyFolders.length, 'scanSubEmpty', 'emptyEmptyTitle');
   if (placeholder) return placeholder;
 
   return (
@@ -67,7 +62,7 @@ export function EmptyFoldersTab({
             </td>
             <td className="py-2.5 px-4 text-center">
               <Badge variant="outline" className="text-[9px] uppercase font-medium text-destructive border-destructive/30 bg-destructive/10 rounded-md">
-                {language === 'id' ? 'Kosong' : 'Empty'}
+                {t('tagEmpty')}
               </Badge>
             </td>
             <td className="py-2.5 px-4 text-center">
@@ -79,7 +74,7 @@ export function EmptyFoldersTab({
                   handleScanEmpty();
                 }}
                 className="h-7 w-7 p-0 rounded-lg text-destructive hover:bg-destructive/10 cursor-pointer"
-                title="Buang ke Tong Sampah"
+                title={t('moveToTrashTooltip')}
               >
                 <Trash2 className="h-3.5 w-3.5 text-current" />
               </Button>

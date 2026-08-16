@@ -6,7 +6,6 @@ import {
   FolderMinus3,
   Refresh,
   Search4,
-  CheckCircle,
   Sparkles,
   Trash2,
 } from 'reicon-react';
@@ -14,8 +13,9 @@ import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select } from '@/components/ui/select';
+import { FilterBtn } from '@/components/ui/filter-btn';
+import { SuccessNotice } from '@/components/ui/notice-banner';
 import { Pagination } from '@/components/bookmark/Pagination';
-import { cn } from '@/lib/utils';
 import { moveToTrash } from '@/lib/trash';
 import {
   scanDuplicateFolders,
@@ -35,8 +35,39 @@ import { EmptyFoldersTab } from './EmptyFoldersTab';
 
 const ITEMS_PER_PAGE = 8;
 
+// Checkbox tri-state: none / some / all selected.
+function triState(selected: number, total: number): boolean | 'indeterminate' {
+  if (total === 0 || selected === 0) return false;
+  return selected === total ? true : 'indeterminate';
+}
+
+// Canonical URL key for duplicate matching. `new URL` lowercases the host and
+// splits off hash/query natively; locale prefixes and index files stay regex.
+function normalizeUrl(rawUrl: string, strategy: 'strict' | 'normalized' | 'smart'): string {
+  if (strategy === 'strict') return rawUrl.trim();
+  let u: string;
+  try {
+    const parsed = new URL(rawUrl.trim());
+    u = parsed.hostname.replace(/^www\./, '') + parsed.pathname.toLowerCase();
+  } catch {
+    return rawUrl.trim();
+  }
+  if (strategy === 'smart') {
+    u = u.replace(/\/(en-us|id-id|en|id|zh-cn|ja|de|fr|es)(\/|$)/g, '/');
+  }
+  u = u.replace(/\/index\.(html?|php|aspx?)$/, '');
+  return u.length > 1 && u.endsWith('/') ? u.slice(0, -1) : u;
+}
+
+// Auto-select the duplicates to remove (keep the oldest bookmark of each group).
+function autoSelectSet(groups: DuplicateGroup[]): Set<string> {
+  const ids = new Set<string>();
+  groups.forEach((g) => g.items.slice(1).forEach((item) => ids.add(item.id)));
+  return ids;
+}
+
 export function BookmarkManagementView() {
-  const { language, t } = useTranslation();
+  const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = React.useState<'duplicates' | 'merge' | 'split' | 'empty'>('duplicates');
 
   // Common UI states
@@ -82,95 +113,12 @@ export function BookmarkManagementView() {
   const [emptyFolders, setEmptyFolders] = React.useState<EmptyFolderItem[]>([]);
   const [selectedEmptyFolderIds, setSelectedEmptyFolderIds] = React.useState<Set<string>>(new Set());
 
-  // Helper normalize URL
-  const normalizeUrl = React.useCallback((rawUrl: string, strategy: 'strict' | 'normalized' | 'smart'): string => {
-    if (strategy === 'strict') return rawUrl.trim();
-    try {
-      let u = rawUrl.trim().toLowerCase();
-
-      // Strip protocol & www
-      u = u.replace(/^https?:\/\//, '');
-      u = u.replace(/^www\./, '');
-
-      // Strip hash fragment (#...)
-      u = u.split('#')[0];
-
-      // Strip query parameters for normalized and smart strategies
-      if (strategy === 'normalized' || strategy === 'smart') {
-        u = u.split('?')[0];
-      }
-
-      // Smart Strategy: Strip language locale path prefixes (e.g., /en-US/, /id/, /en/)
-      if (strategy === 'smart') {
-        u = u.replace(/\/(en-us|id-id|en|id|zh-cn|ja|de|fr|es)(\/|$)/g, '/');
-      }
-
-      // Strip trailing index filenames & slashes
-      u = u.replace(/\/index\.(html?|php|aspx?)$/, '');
-      if (u.length > 1 && u.endsWith('/')) {
-        u = u.slice(0, -1);
-      }
-      return u;
-    } catch {
-      return rawUrl.trim();
-    }
-  }, []);
-
-  // Scan handlers
-  const handleScanDuplicateLinks = React.useCallback(async () => {
+  // Shared scan wrapper: loading state + notice reset + page reset.
+  const runScan = React.useCallback(async (loader: () => Promise<void>) => {
     setIsScanning(true);
     setNotice(null);
     try {
-      const map = new Map<string, Array<{ id: string; title: string; url: string; folderPath: string; dateAdded?: number }>>();
-
-      await walkBookmarkTree((node, currentPath) => {
-        if (!node.url) return;
-        const key = normalizeUrl(node.url, matchStrategy);
-        const item = {
-          id: node.id,
-          title: node.title || node.url,
-          url: node.url,
-          folderPath: currentPath.join(' > ') || 'Root',
-          dateAdded: node.dateAdded,
-        };
-        const existing = map.get(key) || [];
-        existing.push(item);
-        map.set(key, existing);
-      });
-
-      const dupGroups: DuplicateGroup[] = [];
-      map.forEach((items, key) => {
-        if (items.length > 1) {
-          const sorted = [...items].sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0));
-          dupGroups.push({ key, displayUrl: sorted[0].url, items: sorted });
-        }
-      });
-
-      dupGroups.sort((a, b) => b.items.length - a.items.length);
-      setDupLinkGroups(dupGroups);
-      setHasScanned(true);
-      setPage(1);
-
-      // Default auto-select duplicates (keep oldest 1)
-      const autoSet = new Set<string>();
-      dupGroups.forEach((g) => {
-        g.items.slice(1).forEach((item) => autoSet.add(item.id));
-      });
-      setSelectedLinkIds(autoSet);
-    } catch (err) {
-      console.error('Failed to scan duplicate links:', err);
-    } finally {
-      setIsScanning(false);
-    }
-  }, [matchStrategy, normalizeUrl]);
-
-  const handleScanMerge = React.useCallback(async () => {
-    setIsScanning(true);
-    setNotice(null);
-    try {
-      const groups = await scanDuplicateFolders();
-      setDuplicateGroups(groups);
-      setSelectedGroupKeys(new Set(groups.map((g) => g.key)));
+      await loader();
       setHasScanned(true);
       setPage(1);
     } finally {
@@ -178,32 +126,68 @@ export function BookmarkManagementView() {
     }
   }, []);
 
-  const handleScanSplit = React.useCallback(async () => {
-    setIsScanning(true);
-    setNotice(null);
-    try {
-      const candidates = await scanFoldersForSplitting();
-      setSplitCandidates(candidates);
-      setHasScanned(true);
-      setPage(1);
-    } finally {
-      setIsScanning(false);
-    }
-  }, []);
+  const handleScanDuplicateLinks = React.useCallback(
+    () =>
+      runScan(async () => {
+        const map = new Map<string, Array<{ id: string; title: string; url: string; folderPath: string; dateAdded?: number }>>();
 
-  const handleScanEmpty = React.useCallback(async () => {
-    setIsScanning(true);
-    setNotice(null);
-    try {
-      const folders = await scanEmptyFolders();
-      setEmptyFolders(folders);
-      setSelectedEmptyFolderIds(new Set(folders.map((f) => f.id)));
-      setHasScanned(true);
-      setPage(1);
-    } finally {
-      setIsScanning(false);
-    }
-  }, []);
+        await walkBookmarkTree((node, currentPath) => {
+          if (!node.url) return;
+          const key = normalizeUrl(node.url, matchStrategy);
+          const item = {
+            id: node.id,
+            title: node.title || node.url,
+            url: node.url,
+            folderPath: currentPath.join(' > ') || 'Root',
+            dateAdded: node.dateAdded,
+          };
+          const existing = map.get(key) || [];
+          existing.push(item);
+          map.set(key, existing);
+        });
+
+        const dupGroups: DuplicateGroup[] = [];
+        map.forEach((items, key) => {
+          if (items.length > 1) {
+            const sorted = [...items].sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0));
+            dupGroups.push({ key, displayUrl: sorted[0].url, items: sorted });
+          }
+        });
+
+        dupGroups.sort((a, b) => b.items.length - a.items.length);
+        setDupLinkGroups(dupGroups);
+        setSelectedLinkIds(autoSelectSet(dupGroups));
+      }),
+    [matchStrategy, runScan]
+  );
+
+  const handleScanMerge = React.useCallback(
+    () =>
+      runScan(async () => {
+        const groups = await scanDuplicateFolders();
+        setDuplicateGroups(groups);
+        setSelectedGroupKeys(new Set(groups.map((g) => g.key)));
+      }),
+    [runScan]
+  );
+
+  const handleScanSplit = React.useCallback(
+    () =>
+      runScan(async () => {
+        setSplitCandidates(await scanFoldersForSplitting());
+      }),
+    [runScan]
+  );
+
+  const handleScanEmpty = React.useCallback(
+    () =>
+      runScan(async () => {
+        const folders = await scanEmptyFolders();
+        setEmptyFolders(folders);
+        setSelectedEmptyFolderIds(new Set(folders.map((f) => f.id)));
+      }),
+    [runScan]
+  );
 
   // Trigger scan when subtab or matchStrategy changes
   React.useEffect(() => {
@@ -214,35 +198,41 @@ export function BookmarkManagementView() {
     else if (activeSubTab === 'empty') handleScanEmpty();
   }, [activeSubTab, matchStrategy, handleScanDuplicateLinks, handleScanMerge, handleScanSplit, handleScanEmpty]);
 
-  // Action: Delete Selected Duplicate Links
-  const handleDeleteDuplicateLinks = async () => {
-    if (selectedLinkIds.size === 0) return;
+  const rescan = () => {
+    if (activeSubTab === 'duplicates') return handleScanDuplicateLinks();
+    if (activeSubTab === 'merge') return handleScanMerge();
+    if (activeSubTab === 'split') return handleScanSplit();
+    return handleScanEmpty();
+  };
+
+  // Shared batch-action wrapper: run work (returns the notice text), then rescan.
+  const runAction = async (rescanFn: () => Promise<void> | void, work: () => Promise<string>) => {
     setIsProcessing(true);
     setNotice(null);
     try {
-      const count = selectedLinkIds.size;
-      for (const id of Array.from(selectedLinkIds)) {
-        await moveToTrash(id);
-      }
-      setNotice(
-        language === 'id'
-          ? `Berhasil memindahkan ${count} link duplikat ke Tong Sampah!`
-          : `Successfully moved ${count} duplicate links to Trash!`
-      );
-      await handleScanDuplicateLinks();
+      setNotice(await work());
+      await rescanFn();
     } catch (err) {
-      console.error('Failed to delete duplicate links:', err);
+      console.error('Management action failed:', err);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Action: Merge Selected Duplicate Folder Groups
-  const handleMergeSelected = async () => {
+  const handleDeleteDuplicateLinks = () => {
+    if (selectedLinkIds.size === 0) return;
+    runAction(handleScanDuplicateLinks, async () => {
+      const ids = Array.from(selectedLinkIds);
+      for (const id of ids) {
+        await moveToTrash(id);
+      }
+      return t('deleteSuccessNotice', { count: ids.length });
+    });
+  };
+
+  const handleMergeSelected = () => {
     if (selectedGroupKeys.size === 0) return;
-    setIsProcessing(true);
-    setNotice(null);
-    try {
+    runAction(handleScanMerge, async () => {
       let totalMergedFolders = 0;
       let totalMovedBookmarks = 0;
       let totalTrashedDuplicates = 0;
@@ -254,42 +244,23 @@ export function BookmarkManagementView() {
         totalMovedBookmarks += result.movedBookmarksCount;
         totalTrashedDuplicates += result.trashedDuplicatesCount;
       }
-
-      setNotice(
-        language === 'id'
-          ? `Berhasil menggabungkan ${totalMergedFolders} folder duplikat (${totalMovedBookmarks} link dipindahkan, ${totalTrashedDuplicates} link duplikat dibuang ke Trash).`
-          : `Successfully merged ${totalMergedFolders} duplicate folders (${totalMovedBookmarks} links moved, ${totalTrashedDuplicates} duplicate links sent to Trash).`
-      );
-
-      await handleScanMerge();
-    } catch (err) {
-      console.error('Merge failed:', err);
-    } finally {
-      setIsProcessing(false);
-    }
+      return t('mergedFoldersNotice', {
+        folders: totalMergedFolders,
+        moved: totalMovedBookmarks,
+        trashed: totalTrashedDuplicates,
+      });
+    });
   };
 
-  // Action: Delete Selected Empty Folders
-  const handleDeleteEmptyFolders = async () => {
+  const handleDeleteEmptyFolders = () => {
     if (selectedEmptyFolderIds.size === 0) return;
-    setIsProcessing(true);
-    setNotice(null);
-    try {
-      const count = selectedEmptyFolderIds.size;
-      for (const id of Array.from(selectedEmptyFolderIds)) {
+    runAction(handleScanEmpty, async () => {
+      const ids = Array.from(selectedEmptyFolderIds);
+      for (const id of ids) {
         await moveToTrash(id);
       }
-      setNotice(
-        language === 'id'
-          ? `Berhasil memindahkan ${count} folder kosong ke Tong Sampah!`
-          : `Successfully moved ${count} empty folders to Trash!`
-      );
-      await handleScanEmpty();
-    } catch (err) {
-      console.error('Failed to delete empty folders:', err);
-    } finally {
-      setIsProcessing(false);
-    }
+      return t('movedEmptyFoldersNotice', { count: ids.length });
+    });
   };
 
   // Compute total items and pages
@@ -312,22 +283,15 @@ export function BookmarkManagementView() {
 
   const matchOptions = React.useMemo(
     () => [
-      {
-        value: 'smart',
-        label: language === 'id' ? 'Pintar (Bahasa & Parameter)' : 'Smart (Locale & Query)',
-      },
+      { value: 'smart', label: t('matchSmart') },
       { value: 'normalized', label: t('matchNormalized') },
       { value: 'strict', label: t('matchStrict') },
     ],
-    [t, language]
+    [t]
   );
 
   const handleAutoSelectDuplicates = React.useCallback(() => {
-    const autoSet = new Set<string>();
-    dupLinkGroups.forEach((g) => {
-      g.items.slice(1).forEach((item) => autoSet.add(item.id));
-    });
-    setSelectedLinkIds(autoSet);
+    setSelectedLinkIds(autoSelectSet(dupLinkGroups));
   }, [dupLinkGroups]);
 
   const allDupItemIds = React.useMemo(() => {
@@ -336,37 +300,22 @@ export function BookmarkManagementView() {
     return ids;
   }, [dupLinkGroups]);
 
-  const dupHeaderCheckedState: boolean | 'indeterminate' = React.useMemo(() => {
-    if (allDupItemIds.length === 0) return false;
-    if (selectedLinkIds.size === 0) return false;
-    if (selectedLinkIds.size === allDupItemIds.length) return true;
-    return 'indeterminate';
-  }, [allDupItemIds.length, selectedLinkIds.size]);
+  const dupHeaderCheckedState = triState(selectedLinkIds.size, allDupItemIds.length);
+  const mergeHeaderCheckedState = triState(selectedGroupKeys.size, duplicateGroups.length);
+  const emptyHeaderCheckedState = triState(selectedEmptyFolderIds.size, emptyFolders.length);
 
-  const mergeHeaderCheckedState: boolean | 'indeterminate' = React.useMemo(() => {
-    if (duplicateGroups.length === 0) return false;
-    if (selectedGroupKeys.size === 0) return false;
-    if (selectedGroupKeys.size === duplicateGroups.length) return true;
-    return 'indeterminate';
-  }, [duplicateGroups.length, selectedGroupKeys.size]);
-
-  const emptyHeaderCheckedState: boolean | 'indeterminate' = React.useMemo(() => {
-    if (emptyFolders.length === 0) return false;
-    if (selectedEmptyFolderIds.size === 0) return false;
-    if (selectedEmptyFolderIds.size === emptyFolders.length) return true;
-    return 'indeterminate';
-  }, [emptyFolders.length, selectedEmptyFolderIds.size]);
+  const subTabs = [
+    { id: 'duplicates', label: t('subTabDuplicates'), icon: <ClipboardCheck className="h-3.5 w-3.5 text-current" weight="Filled" /> },
+    { id: 'merge', label: t('subTabMerge'), icon: <FolderAdd className="h-3.5 w-3.5 text-current" weight="Filled" /> },
+    { id: 'split', label: t('subTabSplit'), icon: <FolderOpen3 className="h-3.5 w-3.5 text-current" weight="Filled" /> },
+    { id: 'empty', label: t('subTabEmpty'), icon: <FolderMinus3 className="h-3.5 w-3.5 text-current" weight="Filled" /> },
+  ] as const;
 
   return (
     <div className="flex-1 w-full min-w-0 h-full overflow-y-auto px-8 pt-22.25 pb-8 select-none">
       <div className="w-full space-y-3">
         {/* Notice Banner */}
-        {notice && (
-          <div className="flex items-center gap-2.5 p-3 rounded-xl bg-success/10 border border-success/20 text-success text-xs font-semibold animate-in fade-in duration-200">
-            <CheckCircle className="h-4 w-4 shrink-0 text-current" />
-            <span>{notice}</span>
-          </div>
-        )}
+        {notice && <SuccessNotice>{notice}</SuccessNotice>}
 
         {/* Clean, Borderless Toolbar Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
@@ -374,61 +323,15 @@ export function BookmarkManagementView() {
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {/* Sub-Tab Navigation Pill Container */}
             <div className="flex items-center rounded-xl border border-border p-1 bg-card/60 shrink-0 gap-1 select-none">
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('duplicates')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-                  activeSubTab === 'duplicates'
-                    ? 'bg-accent text-primary font-semibold border border-border'
-                    : 'tint-text hover:text-foreground hover:bg-accent/30'
-                )}
-              >
-                <ClipboardCheck className="h-3.5 w-3.5 text-current" weight="Filled" />
-                <span>{language === 'id' ? 'Duplikat Link' : 'Duplicate Links'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('merge')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-                  activeSubTab === 'merge'
-                    ? 'bg-accent text-primary font-semibold border border-border'
-                    : 'tint-text hover:text-foreground hover:bg-accent/30'
-                )}
-              >
-                <FolderAdd className="h-3.5 w-3.5 text-current" weight="Filled" />
-                <span>{language === 'id' ? 'Gabung Folder' : 'Merge Folders'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('split')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-                  activeSubTab === 'split'
-                    ? 'bg-accent text-primary font-semibold border border-border'
-                    : 'tint-text hover:text-foreground hover:bg-accent/30'
-                )}
-              >
-                <FolderOpen3 className="h-3.5 w-3.5 text-current" weight="Filled" />
-                <span>{language === 'id' ? 'Kelompokkan Domain' : 'Group by Domain'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('empty')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-                  activeSubTab === 'empty'
-                    ? 'bg-accent text-primary font-semibold border border-border'
-                    : 'tint-text hover:text-foreground hover:bg-accent/30'
-                )}
-              >
-                <FolderMinus3 className="h-3.5 w-3.5 text-current" weight="Filled" />
-                <span>{language === 'id' ? 'Folder Kosong' : 'Empty Folders'}</span>
-              </button>
+              {subTabs.map((tab) => (
+                <FilterBtn
+                  key={tab.id}
+                  active={activeSubTab === tab.id}
+                  onClick={() => setActiveSubTab(tab.id)}
+                  icon={tab.icon}
+                  label={tab.label}
+                />
+              ))}
             </div>
 
             {/* Match Strategy Dropdown (When on Duplicates tab) */}
@@ -445,12 +348,7 @@ export function BookmarkManagementView() {
 
             {/* Scan / Rescan Button */}
             <Button
-              onClick={() => {
-                if (activeSubTab === 'duplicates') handleScanDuplicateLinks();
-                else if (activeSubTab === 'merge') handleScanMerge();
-                else if (activeSubTab === 'split') handleScanSplit();
-                else handleScanEmpty();
-              }}
+              onClick={rescan}
               disabled={isScanning}
               className="flex items-center gap-1.5 h-8 px-3.5 text-xs rounded-xl bg-primary text-primary-foreground hover:opacity-90 font-semibold cursor-pointer active:scale-95 transition-all"
             >
@@ -459,7 +357,7 @@ export function BookmarkManagementView() {
               ) : (
                 <Search4 className="h-3.5 w-3.5 text-current" />
               )}
-              <span>{hasScanned ? (language === 'id' ? 'Pindai Ulang' : 'Rescan') : (language === 'id' ? 'Pindai' : 'Scan')}</span>
+              <span>{hasScanned ? t('rescanButton') : t('scanBtn')}</span>
             </Button>
 
             {/* Batch Action Buttons */}
@@ -472,7 +370,7 @@ export function BookmarkManagementView() {
                   className="flex items-center gap-1.5 h-8 px-3.5 bg-card text-foreground hover:bg-accent font-semibold text-xs rounded-xl border border-border transition-all active:scale-95 cursor-pointer"
                 >
                   <Sparkles className="h-3.5 w-3.5 text-current" />
-                  <span>{language === 'id' ? 'Pilih Otomatis' : 'Auto Select'}</span>
+                  <span>{t('autoSelectShort')}</span>
                 </Button>
 
                 <Button
@@ -485,11 +383,7 @@ export function BookmarkManagementView() {
                   ) : (
                     <Trash2 className="h-3.5 w-3.5 text-white" />
                   )}
-                  <span>
-                    {language === 'id'
-                      ? `Hapus Terpilih (${selectedLinkIds.size})`
-                      : `Delete Selected (${selectedLinkIds.size})`}
-                  </span>
+                  <span>{t('deleteSelected', { count: selectedLinkIds.size })}</span>
                 </Button>
               </>
             )}
@@ -503,13 +397,9 @@ export function BookmarkManagementView() {
                 {isProcessing ? (
                   <Refresh className="h-3.5 w-3.5 animate-spin text-current" />
                 ) : (
-<FolderAdd className="h-3.5 w-3.5 text-current" weight="Filled" />
+                  <FolderAdd className="h-3.5 w-3.5 text-current" weight="Filled" />
                 )}
-                <span>
-                  {language === 'id'
-                    ? `Gabungkan Semua (${selectedGroupKeys.size})`
-                    : `Merge All (${selectedGroupKeys.size})`}
-                </span>
+                <span>{t('mergeAllSelected', { count: selectedGroupKeys.size })}</span>
               </Button>
             )}
 
@@ -524,11 +414,7 @@ export function BookmarkManagementView() {
                 ) : (
                   <Trash2 className="h-3.5 w-3.5 text-white" />
                 )}
-                <span>
-                  {language === 'id'
-                    ? `Hapus Terpilih (${selectedEmptyFolderIds.size})`
-                    : `Delete Selected (${selectedEmptyFolderIds.size})`}
-                </span>
+                <span>{t('deleteSelected', { count: selectedEmptyFolderIds.size })}</span>
               </Button>
             )}
           </div>
@@ -538,25 +424,19 @@ export function BookmarkManagementView() {
             {isScanning ? (
               <span className="flex items-center gap-2 tint-text">
                 <Refresh className="h-3.5 w-3.5 animate-spin text-primary" />
-                <span>{language === 'id' ? 'Memindai...' : 'Scanning...'}</span>
+                <span>{t('mgmtScanning')}</span>
               </span>
             ) : !hasScanned ? (
-              <span className="tint-text font-medium">
-                {language === 'id' ? 'Klik pindai untuk memulai' : 'Click scan to start'}
-              </span>
+              <span className="tint-text font-medium">{t('clickScanToStart')}</span>
             ) : currentTotalItems > 0 ? (
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-medium tint-text">
-                  {language === 'id'
-                    ? `${currentTotalItems} item ditemukan`
-                    : `${currentTotalItems} items found`}
+                  {t('itemsFound', { count: currentTotalItems })}
                 </span>
                 {pageCount > 1 && <Pagination page={page} pageCount={pageCount} onChange={setPage} />}
               </div>
             ) : (
-              <span className="tint-text font-medium">
-                {language === 'id' ? 'Tidak ada data ditemukan' : 'No items found'}
-              </span>
+              <span className="tint-text font-medium">{t('noItemsFound')}</span>
             )}
           </div>
         </div>
@@ -579,10 +459,10 @@ export function BookmarkManagementView() {
                           }}
                         />
                       </th>
-                      <th className="py-2.5 px-4 w-72">{language === 'id' ? 'Link' : 'Link'}</th>
-                      <th className="py-2.5 px-4">{language === 'id' ? 'Lokasi' : 'Location'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Status' : 'Status'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Aksi' : 'Action'}</th>
+                      <th className="py-2.5 px-4 w-72">Link</th>
+                      <th className="py-2.5 px-4">{t('colLocation')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colStatus')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colAction')}</th>
                     </>
                   ) : activeSubTab === 'merge' ? (
                     <>
@@ -596,10 +476,10 @@ export function BookmarkManagementView() {
                           }}
                         />
                       </th>
-                      <th className="py-2.5 px-4 w-72">{language === 'id' ? 'Folder' : 'Folder'}</th>
-                      <th className="py-2.5 px-4">{language === 'id' ? 'Target' : 'Target'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Jumlah' : 'Count'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Aksi' : 'Action'}</th>
+                      <th className="py-2.5 px-4 w-72">{t('colFolder')}</th>
+                      <th className="py-2.5 px-4">{t('colTarget')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colCount')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colAction')}</th>
                     </>
                   ) : activeSubTab === 'empty' ? (
                     <>
@@ -613,18 +493,18 @@ export function BookmarkManagementView() {
                           }}
                         />
                       </th>
-                      <th className="py-2.5 px-4 w-72">{language === 'id' ? 'Folder' : 'Folder'}</th>
-                      <th className="py-2.5 px-4">{language === 'id' ? 'Lokasi' : 'Location'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Status' : 'Status'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Aksi' : 'Action'}</th>
+                      <th className="py-2.5 px-4 w-72">{t('colFolder')}</th>
+                      <th className="py-2.5 px-4">{t('colLocation')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colStatus')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colAction')}</th>
                     </>
                   ) : (
                     <>
                       <th className="py-2.5 px-4 w-12 text-center">#</th>
-                      <th className="py-2.5 px-4 w-72">{language === 'id' ? 'Folder' : 'Folder'}</th>
-                      <th className="py-2.5 px-4">{language === 'id' ? 'Domain' : 'Domains'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Jumlah' : 'Count'}</th>
-                      <th className="py-2.5 px-4 w-32 text-center">{language === 'id' ? 'Aksi' : 'Action'}</th>
+                      <th className="py-2.5 px-4 w-72">{t('colFolder')}</th>
+                      <th className="py-2.5 px-4">{t('colDomains')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colCount')}</th>
+                      <th className="py-2.5 px-4 w-32 text-center">{t('colAction')}</th>
                     </>
                   )}
                 </tr>
@@ -638,9 +518,7 @@ export function BookmarkManagementView() {
                     expandedLinkGroupKeys={expandedLinkGroupKeys}
                     toggleExpandLinkGroup={toggleExpandLinkGroup}
                     pageData={getCurrentPageData(dupLinkGroups)}
-                    page={page}
-                    itemsPerPage={ITEMS_PER_PAGE}
-                    language={language}
+                    rowOffset={(page - 1) * ITEMS_PER_PAGE}
                     hasScanned={hasScanned}
                     isScanning={isScanning}
                     handleScanDuplicateLinks={handleScanDuplicateLinks}
@@ -655,7 +533,6 @@ export function BookmarkManagementView() {
                     expandedGroupKeys={expandedGroupKeys}
                     toggleExpandGroup={toggleExpandGroup}
                     pageData={getCurrentPageData(duplicateGroups)}
-                    language={language}
                     hasScanned={hasScanned}
                     isScanning={isScanning}
                     isProcessing={isProcessing}
@@ -669,9 +546,7 @@ export function BookmarkManagementView() {
                   <DomainGroupingTab
                     splitCandidates={splitCandidates}
                     pageData={getCurrentPageData(splitCandidates)}
-                    page={page}
-                    itemsPerPage={ITEMS_PER_PAGE}
-                    language={language}
+                    rowOffset={(page - 1) * ITEMS_PER_PAGE}
                     hasScanned={hasScanned}
                     isScanning={isScanning}
                     isProcessing={isProcessing}
@@ -687,7 +562,6 @@ export function BookmarkManagementView() {
                     selectedEmptyFolderIds={selectedEmptyFolderIds}
                     setSelectedEmptyFolderIds={setSelectedEmptyFolderIds}
                     pageData={getCurrentPageData(emptyFolders)}
-                    language={language}
                     hasScanned={hasScanned}
                     isScanning={isScanning}
                     handleScanEmpty={handleScanEmpty}

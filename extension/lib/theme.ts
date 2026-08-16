@@ -4,17 +4,19 @@ interface ThemePreset {
   id: string;
   name: string;
   accentHex: string;
+  // Readable text on accentHex (WCAG AA), precomputed per preset.
+  primaryFg: string;
 }
 
 export const PRESET_THEMES: ThemePreset[] = [
-  { id: 'default', name: 'Default (Zinc)', accentHex: '#ffffff' },
-  { id: 'dracula', name: 'Dracula (Violet)', accentHex: '#bd93f9' },
-  { id: 'clouds', name: 'Clouds (Sky Blue)', accentHex: '#38bdf8' },
-  { id: 'emerald', name: 'Emerald Synth (Green)', accentHex: '#10b981' },
-  { id: 'amber', name: 'Cyber Amber (Gold)', accentHex: '#f59e0b' },
-  { id: 'sunset', name: 'Sunset Orange (Coral)', accentHex: '#f97316' },
-  { id: 'rose-pine', name: 'Rosé Pine (Pink)', accentHex: '#ec4899' },
-  { id: 'custom', name: 'Kustom Hex / GitHub', accentHex: '#6366f1' },
+  { id: 'default', name: 'Default (Zinc)', accentHex: '#ffffff', primaryFg: '#0f172a' },
+  { id: 'dracula', name: 'Dracula (Violet)', accentHex: '#bd93f9', primaryFg: '#0f172a' },
+  { id: 'clouds', name: 'Clouds (Sky Blue)', accentHex: '#38bdf8', primaryFg: '#0f172a' },
+  { id: 'emerald', name: 'Emerald Synth (Green)', accentHex: '#10b981', primaryFg: '#0f172a' },
+  { id: 'amber', name: 'Cyber Amber (Gold)', accentHex: '#f59e0b', primaryFg: '#0f172a' },
+  { id: 'sunset', name: 'Sunset Orange (Coral)', accentHex: '#f97316', primaryFg: '#0f172a' },
+  { id: 'rose-pine', name: 'Rosé Pine (Pink)', accentHex: '#ec4899', primaryFg: '#ffffff' },
+  { id: 'custom', name: 'Kustom Hex / GitHub', accentHex: '#6366f1', primaryFg: '#ffffff' },
 ];
 
 export interface ThemeConfig {
@@ -31,39 +33,15 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   githubUrl: '',
 };
 
-/**
- * Standard RGB -> OKLCH converter to extract exact Hue angle H (0-360 deg) and Chroma
- * for 100% precise native OKLCH theme generation without hue distortion.
- */
-export function hexToOklch(hex: string): { l: number; c: number; h: number } {
-  let cleanHex = hex.trim().replace('#', '');
-  if (cleanHex.length === 3) {
-    cleanHex = cleanHex.split('').map((ch) => ch + ch).join('');
-  }
-  if (cleanHex.length !== 6) return { l: 0.75, c: 0.15, h: 250 };
-
-  const r = parseInt(cleanHex.slice(0, 2), 16) / 255;
-  const g = parseInt(cleanHex.slice(2, 4), 16) / 255;
-  const b = parseInt(cleanHex.slice(4, 6), 16) / 255;
-
-  const toLinear = (c: number) => (c > 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92);
-  const lr = toLinear(r);
-  const lg = toLinear(g);
-  const lb = toLinear(b);
-
-  const l_ = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb);
-  const m_ = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb);
-  const s_ = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb);
-
-  const L = 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720403 * s_;
-  const a = 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_;
-  const b_ = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757986 * s_;
-
-  const C = Math.sqrt(a * a + b_ * b_);
-  let H = (Math.atan2(b_, a) * 180) / Math.PI;
-  if (H < 0) H += 360;
-
-  return { l: L, c: C, h: H };
+// YIQ contrast pick for user-supplied custom hex colors (presets carry
+// precomputed primaryFg instead).
+function contrastFg(hex: string): string {
+  const clean = hex.trim().replace('#', '');
+  if (clean.length !== 6) return '#ffffff';
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return (299 * r + 587 * g + 114 * b) / 1000 >= 128 ? '#0f172a' : '#ffffff';
 }
 
 export async function loadThemeConfig(): Promise<ThemeConfig> {
@@ -128,41 +106,19 @@ export function applyThemeConfig(config?: ThemeConfig | null): void {
     root.style.removeProperty('--primary');
     root.style.removeProperty('--primary-foreground');
     root.style.removeProperty('--ring');
-    root.style.removeProperty('--background');
-    root.style.removeProperty('--card');
-    root.style.removeProperty('--popover');
-    root.style.removeProperty('--muted');
-    root.style.removeProperty('--tint-foreground');
-    root.style.removeProperty('--border');
+    root.removeAttribute('data-accent');
+    root.style.removeProperty('--accent-source');
   } else {
+    // Hue-tinted surfaces are derived in globals.css from --accent-source via
+    // CSS relative color syntax (oklch(from <color> l c h)).
+    root.style.setProperty('--accent-source', accentColor);
+    root.setAttribute('data-accent', '');
     root.style.setProperty('--primary', accentColor);
     root.style.setProperty('--ring', accentColor);
-
-    const { l, h } = hexToOklch(accentColor);
-    const roundH = Math.round(h * 10) / 10;
-
-    // Dynamically set --primary-foreground based on accent lightness (WCAG AA compliance)
-    const primaryFg = l < 0.68 ? '#ffffff' : '#0f172a';
-    root.style.setProperty('--primary-foreground', primaryFg);
-
-    if (isDark) {
-      // Ultra-subtle, sleek OKLCH surface tinting using identical Hue H to eliminate reddish distortion
-      root.style.setProperty('--background', `oklch(0.10 0.005 ${roundH})`);
-      root.style.setProperty('--card', `oklch(0.14 0.008 ${roundH})`);
-      root.style.setProperty('--popover', `oklch(0.14 0.008 ${roundH})`);
-      root.style.setProperty('--muted', `oklch(0.17 0.012 ${roundH})`);
-      root.style.setProperty('--tint-foreground', `oklch(0.72 0.045 ${roundH})`);
-      root.style.setProperty('--border', `oklch(0.23 0.015 ${roundH})`);
-      root.style.setProperty('--accent', `oklch(0.19 0.020 ${roundH})`);
-    } else {
-      root.style.setProperty('--background', `oklch(0.99 0.004 ${roundH})`);
-      root.style.setProperty('--card', `oklch(0.97 0.007 ${roundH})`);
-      root.style.setProperty('--popover', `oklch(0.97 0.007 ${roundH})`);
-      root.style.setProperty('--muted', `oklch(0.93 0.010 ${roundH})`);
-      root.style.setProperty('--tint-foreground', `oklch(0.45 0.060 ${roundH})`);
-      root.style.setProperty('--border', `oklch(0.88 0.012 ${roundH})`);
-      root.style.setProperty('--accent', `oklch(0.94 0.014 ${roundH})`);
-    }
+    root.style.setProperty(
+      '--primary-foreground',
+      config.presetId === 'custom' ? contrastFg(accentColor) : preset.primaryFg
+    );
   }
 
   // 3. Dynamic real-time tab favicon refresh for instant browser tab strip update on theme toggle

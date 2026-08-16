@@ -5,19 +5,15 @@ import type { SyncStatus } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n';
 
 export function DashboardView({
-  totalBookmarksCount,
-  totalFoldersCount = 0,
-  directLinksCount = 0,
+  stats,
   syncStatus,
-  manageWidgetModalOpen = false,
-  onManageWidgetModalChange,
+  manageWidgetModalOpen,
+  onManageModalChange,
 }: {
-  totalBookmarksCount: number;
-  totalFoldersCount?: number;
-  directLinksCount?: number;
+  stats: { bookmarks: number; folders: number; directLinks: number };
   syncStatus: SyncStatus;
-  manageWidgetModalOpen?: boolean;
-  onManageWidgetModalChange?: (open: boolean) => void;
+  manageWidgetModalOpen: boolean;
+  onManageModalChange: (open: boolean) => void;
 }) {
   const { language, getRandomGreeting } = useTranslation();
   const [searchGreeting, setSearchGreeting] = React.useState('');
@@ -42,12 +38,10 @@ export function DashboardView({
 
         {/* Unified Widgets Section (Grid 4 Columns) */}
         <WidgetsSection
-          totalBookmarksCount={totalBookmarksCount}
-          totalFoldersCount={totalFoldersCount}
-          directLinksCount={directLinksCount}
+          stats={stats}
           syncStatus={syncStatus}
           manageModalOpen={manageWidgetModalOpen}
-          onManageModalChange={onManageWidgetModalChange}
+          onManageModalChange={onManageModalChange}
         />
       </div>
     </div>

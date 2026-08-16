@@ -6,13 +6,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  pointerWithin,
-  closestCenter,
   DragOverlay,
   type DragEndEvent,
   type DragStartEvent,
   type DragOverEvent,
-  type CollisionDetection,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -28,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useLocalStorageState } from '@/lib/hooks';
+import { pointerThenCenter, DROP_ANIMATION } from '@/lib/dnd';
 import type { SyncStatus } from '@/lib/types';
 import { useTranslation, type TranslationKey } from '@/lib/i18n';
 import { TopSitesWidget, FavoriteSitesWidget } from './TopAndFavoriteSites';
@@ -68,6 +66,15 @@ const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
 const DEFAULT_ORDER = DEFAULT_WIDGET_CONFIGS.map((w) => w.id);
 const DEFAULT_NAME_KEYS = new Map(DEFAULT_WIDGET_CONFIGS.map((w) => [w.id, w.nameKey]));
 
+// Drop the removed 'quicklinks' id and append any ids missing from defaults.
+function mergeOrder(prev: string[]): string[] {
+  const merged = prev.filter((id) => id !== 'quicklinks');
+  DEFAULT_ORDER.forEach((id) => {
+    if (!merged.includes(id)) merged.push(id);
+  });
+  return merged;
+}
+
 type WidgetCategoryId = 'timeProductivity' | 'sitesNavigation' | 'islamicInspiration';
 
 interface WidgetCategoryDef {
@@ -95,19 +102,15 @@ const WIDGET_CATEGORIES: WidgetCategoryDef[] = [
 ];
 
 export function WidgetsSection({
-  totalBookmarksCount,
-  totalFoldersCount = 0,
-  directLinksCount = 0,
+  stats,
   syncStatus,
-  manageModalOpen = false,
+  manageModalOpen,
   onManageModalChange,
 }: {
-  totalBookmarksCount: number;
-  totalFoldersCount?: number;
-  directLinksCount?: number;
+  stats: { bookmarks: number; folders: number; directLinks: number };
   syncStatus: SyncStatus;
-  manageModalOpen?: boolean;
-  onManageModalChange?: (open: boolean) => void;
+  manageModalOpen: boolean;
+  onManageModalChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [configs, setConfigs] = React.useState<WidgetConfig[]>(() => {
@@ -141,20 +144,10 @@ export function WidgetsSection({
   // Filter out removed 'quicklinks' id and merge any new default ids once on mount.
   React.useEffect(() => {
     setWidgetOrder((prev) => {
-      const filtered = prev.filter((id) => id !== 'quicklinks');
-      DEFAULT_ORDER.forEach((id) => {
-        if (!filtered.includes(id)) filtered.push(id);
-      });
-      return filtered.length === prev.length && filtered.every((v, i) => v === prev[i]) ? prev : filtered;
+      const merged = mergeOrder(prev);
+      return merged.length === prev.length && merged.every((v, i) => v === prev[i]) ? prev : merged;
     });
   }, []);
-
-  const [localManageModal, setLocalManageModal] = React.useState(false);
-  const showManageModal = manageModalOpen || localManageModal;
-  const setShowManageModal = (val: boolean) => {
-    setLocalManageModal(val);
-    onManageModalChange?.(val);
-  };
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [openCategories, setOpenCategories] = React.useState<Record<string, boolean>>({
@@ -176,12 +169,6 @@ export function WidgetsSection({
       prev.map((w) => (w.id === id ? { ...w, enabled: !w.enabled } : w))
     );
   };
-
-const widgetGridCollision: CollisionDetection = (args) => {
-  const pointerCollisions = pointerWithin(args);
-  if (pointerCollisions.length > 0) return pointerCollisions;
-  return closestCenter(args);
-};
 
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [overId, setOverId] = React.useState<string | null>(null);
@@ -255,9 +242,9 @@ const widgetGridCollision: CollisionDetection = (args) => {
       case 'stats':
         return (
           <StatsWidget
-            totalBookmarks={totalBookmarksCount}
-            totalFolders={totalFoldersCount}
-            directLinks={directLinksCount}
+            totalBookmarks={stats.bookmarks}
+            totalFolders={stats.folders}
+            directLinks={stats.directLinks}
             syncStatus={syncStatus}
             dragHandle={dragHandle}
           />
@@ -288,7 +275,7 @@ const widgetGridCollision: CollisionDetection = (args) => {
       {activeWidgetIds.length > 0 ? (
         <DndContext
           sensors={sensors}
-          collisionDetection={widgetGridCollision}
+          collisionDetection={pointerThenCenter}
           onDragStart={onDragStart}
           onDragOver={onDragOver}
           onDragEnd={onDragEnd}
@@ -308,18 +295,16 @@ const widgetGridCollision: CollisionDetection = (args) => {
               ))}
             </div>
           </SortableContext>
-          {typeof window !== 'undefined'
-            ? createPortal(
-                <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
-                  {activeWidgetId ? (
-                    <div className="w-80 sm:w-85 max-w-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] rotate-3 scale-105 pointer-events-none opacity-95 ring-2 ring-primary rounded-2xl overflow-hidden backdrop-blur-md bg-card transition-transform duration-100">
-                      {renderWidgetContent(activeWidgetId, { attributes: {}, listeners: {} })}
-                    </div>
-                  ) : null}
-                </DragOverlay>,
-                document.body
-              )
-            : null}
+          {createPortal(
+            <DragOverlay dropAnimation={DROP_ANIMATION}>
+              {activeWidgetId ? (
+                <div className="w-80 sm:w-85 max-w-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] rotate-3 scale-105 pointer-events-none opacity-95 ring-2 ring-primary rounded-2xl overflow-hidden backdrop-blur-md bg-card transition-transform duration-100">
+                  {renderWidgetContent(activeWidgetId, { attributes: {}, listeners: {} })}
+                </div>
+              ) : null}
+            </DragOverlay>,
+            document.body
+          )}
         </DndContext>
       ) : (
         <div className="rounded-2xl border border-dashed border-border p-8 text-center text-xs tint-text">
@@ -328,7 +313,7 @@ const widgetGridCollision: CollisionDetection = (args) => {
       )}
 
       {/* Modal Manage Widgets */}
-      <Dialog open={showManageModal} onOpenChange={setShowManageModal}>
+      <Dialog open={manageModalOpen} onOpenChange={onManageModalChange}>
         <DialogContent className="sm:max-w-md bg-card border border-border text-foreground p-6 space-y-4 rounded-2xl">
           <DialogHeader className="pb-0 space-y-1">
             <DialogTitle className="text-base font-semibold">{t('widgetSettingsModalTitle')}</DialogTitle>

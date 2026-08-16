@@ -6,7 +6,6 @@ Search4,
   Folder,
   Clock,
   ArrowUpRight,
-  CheckCircle,
   Refresh,
 } from 'reicon-react';
 import {
@@ -22,8 +21,9 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { FaviconImage } from '@/components/ui/FaviconImage';
+import { FilterBtn } from '@/components/ui/filter-btn';
+import { SuccessNotice } from '@/components/ui/notice-banner';
 import { Pagination } from '@/components/bookmark/Pagination';
-import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 12;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -35,8 +35,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<'all' | 'folders' | 'links'>('all');
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [isRestoring, setIsRestoring] = React.useState(false);
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isBusy, setIsBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [page, setPage] = React.useState<number>(1);
 
@@ -80,7 +79,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
 
   const handleRestoreSelected = async () => {
     if (selectedIds.size === 0) return;
-    setIsRestoring(true);
+    setIsBusy(true);
     const count = selectedIds.size;
     try {
       for (const id of Array.from(selectedIds)) {
@@ -92,7 +91,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
     } catch (err) {
       console.error('Failed to restore selected items:', err);
     } finally {
-      setIsRestoring(false);
+      setIsBusy(false);
     }
   };
 
@@ -100,7 +99,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
     if (window.confirm(t('deleteSelectedPermanentConfirm', { count }))) {
-      setIsDeleting(true);
+      setIsBusy(true);
       try {
         for (const id of Array.from(selectedIds)) {
           await deletePermanently(id);
@@ -111,7 +110,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
       } catch (err) {
         console.error('Failed to permanently delete selected items:', err);
       } finally {
-        setIsDeleting(false);
+        setIsBusy(false);
       }
     }
   };
@@ -140,26 +139,25 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
     return Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   }, [filteredItems.length]);
 
+  // Derived clamp: stale page values (after filtering shrinks the list) render page 1.
+  const currentPage = Math.min(page, pageCount);
+
   const paginatedItems = React.useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE;
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredItems.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredItems, page]);
+  }, [filteredItems, currentPage]);
 
   // Handle selection state
   const isAllChecked = React.useMemo(() => {
     return filteredItems.length > 0 && filteredItems.every((item) => selectedIds.has(item.id));
   }, [filteredItems, selectedIds]);
 
-  const handleSelectAll = () => {
-    const allSet = new Set(selectedIds);
-    filteredItems.forEach((item) => allSet.add(item.id));
-    setSelectedIds(allSet);
-  };
-
-  const handleDeselectAll = () => {
-    const nextSet = new Set(selectedIds);
-    filteredItems.forEach((item) => nextSet.delete(item.id));
-    setSelectedIds(nextSet);
+  const handleToggleAll = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      filteredItems.forEach((item) => (checked ? next.add(item.id) : next.delete(item.id)));
+      return next;
+    });
   };
 
   const handleToggleItem = (id: string) => {
@@ -180,12 +178,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
     <div className="flex-1 w-full min-w-0 h-full overflow-y-auto px-8 pt-22.25 pb-8 select-none">
       <div className="w-full space-y-3">
         {/* Notice Banner (Success notification) */}
-        {notice && (
-          <div className="flex items-center gap-2.5 p-3 rounded-xl bg-success/10 border border-success/20 text-success text-xs font-semibold animate-in fade-in duration-200">
-            <CheckCircle className="h-4 w-4 shrink-0" />
-            <span>{notice}</span>
-          </div>
-        )}
+        {notice && <SuccessNotice>{notice}</SuccessNotice>}
 
         {/* 30-Day Auto Cleanup InfoCircle Alert Banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border bg-primary/5 text-xs">
@@ -223,10 +216,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
               <Input
                 type="text"
                 value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('searchTrashPlaceholder')}
                 className="pl-8 pr-3 h-8 text-xs rounded-xl bg-card border-border text-foreground placeholder:text-tint-foreground"
               />
@@ -234,51 +224,21 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
 
             {/* Filter Pills */}
             <div className="flex items-center rounded-xl border border-border p-1 bg-card/60 shrink-0 gap-1 select-none">
-              <button
-                type="button"
-                onClick={() => {
-                  setFilter('all');
-                  setPage(1);
-                }}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-                  filter === 'all'
-                    ? 'bg-accent text-primary font-semibold border border-border'
-                    : 'tint-text hover:text-foreground hover:bg-accent/30'
-                )}
-              >
-                <span>{t('filterAll')} ({items.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFilter('folders');
-                  setPage(1);
-                }}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-                  filter === 'folders'
-                    ? 'bg-accent text-primary font-semibold border border-border'
-                    : 'tint-text hover:text-foreground hover:bg-accent/30'
-                )}
-              >
-                <span>{t('filterFolders')} ({items.filter((i) => !i.url).length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFilter('links');
-                  setPage(1);
-                }}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-                  filter === 'links'
-                    ? 'bg-accent text-primary font-semibold border border-border'
-                    : 'tint-text hover:text-foreground hover:bg-accent/30'
-                )}
-              >
-                <span>{t('filterLinks')} ({items.filter((i) => !!i.url).length})</span>
-              </button>
+              <FilterBtn
+                active={filter === 'all'}
+                onClick={() => setFilter('all')}
+                label={`${t('filterAll')} (${items.length})`}
+              />
+              <FilterBtn
+                active={filter === 'folders'}
+                onClick={() => setFilter('folders')}
+                label={`${t('filterFolders')} (${items.filter((i) => !i.url).length})`}
+              />
+              <FilterBtn
+                active={filter === 'links'}
+                onClick={() => setFilter('links')}
+                label={`${t('filterLinks')} (${items.filter((i) => !!i.url).length})`}
+              />
             </div>
 
             {/* Batch Action Buttons */}
@@ -286,10 +246,10 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
               <>
                 <Button
                   onClick={handleRestoreSelected}
-                  disabled={isRestoring}
+                  disabled={isBusy}
                   className="flex items-center gap-1.5 h-8 px-3 text-xs rounded-xl bg-success hover:opacity-90 text-white font-semibold cursor-pointer active:scale-95 transition-all"
                 >
-                  {isRestoring ? (
+                  {isBusy ? (
                     <Refresh className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <RotateLeft className="h-3.5 w-3.5" />
@@ -299,10 +259,10 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
 
                 <Button
                   onClick={handleDeleteSelectedPermanent}
-                  disabled={isDeleting}
+                  disabled={isBusy}
                   className="flex items-center gap-1.5 h-8 px-3 bg-destructive hover:opacity-90 text-white font-semibold text-xs rounded-xl cursor-pointer active:scale-95 transition-all"
                 >
-                  {isDeleting ? (
+                  {isBusy ? (
                     <Refresh className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Trash2 className="h-3.5 w-3.5" />
@@ -318,9 +278,9 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
             {filteredItems.length > 0 && (
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-medium tint-text">
-                  Total {filteredItems.length} item
+                  {t('totalItems', { count: filteredItems.length })}
                 </span>
-                {pageCount > 1 && <Pagination page={page} pageCount={pageCount} onChange={setPage} />}
+                {pageCount > 1 && <Pagination page={currentPage} pageCount={pageCount} onChange={setPage} />}
               </div>
             )}
           </div>
@@ -336,7 +296,7 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
                     <Checkbox
                       checked={isAllChecked}
                       disabled={filteredItems.length === 0}
-                      onCheckedChange={(c) => (c ? handleSelectAll() : handleDeselectAll())}
+                      onCheckedChange={(c) => handleToggleAll(Boolean(c))}
                     />
                   </th>
                   <th className="py-2.5 px-4">{t('colTitleUrl')}</th>
@@ -493,9 +453,9 @@ export function TrashView({ onTrashChange }: { onTrashChange?: () => void }) {
         {!loading && pageCount > 1 && (
           <div className="flex items-center justify-between px-2 py-1 text-xs tint-text">
             <div>
-              {t('showingTrashPageText', { page, pageCount, totalItems: filteredItems.length })}
+              {t('showingTrashPageText', { page: currentPage, pageCount, totalItems: filteredItems.length })}
             </div>
-            <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+            <Pagination page={currentPage} pageCount={pageCount} onChange={setPage} />
           </div>
         )}
       </div>

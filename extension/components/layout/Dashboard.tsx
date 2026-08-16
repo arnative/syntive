@@ -95,44 +95,27 @@ function SidebarNavItem({
     icon
   );
 
-  if (collapsed) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        title={title || label}
-        className={cn(
-          'relative flex items-center justify-center h-10 w-10 rounded-xl transition-all duration-200 cursor-pointer border',
-          isActive
-            ? 'bg-accent text-primary border-border'
-            : 'tint-text hover:text-foreground hover:bg-accent/50 border-transparent',
-          className
-        )}
-      >
-        <span className={cn('shrink-0', isActive && 'text-primary')}>{displayIcon}</span>
-        {badge}
-      </button>
-    );
-  }
-
   return (
     <button
       type="button"
       onClick={onClick}
       title={title || label}
       className={cn(
-        'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer select-none border',
+        'relative flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer select-none border',
+        collapsed ? 'justify-center h-10 w-10' : 'w-full justify-between px-3.5 py-2.5',
         isActive
           ? 'bg-accent text-primary border-border'
           : 'tint-text hover:text-foreground hover:bg-accent/50 border-transparent',
         className
       )}
     >
-      <div className="flex items-center gap-3 min-w-0 truncate">
-        <span className={cn('shrink-0 self-center flex items-center justify-center', isActive && 'text-primary')}>{displayIcon}</span>
-        <span className="truncate leading-tight self-center">{label}</span>
+      <div className={cn('flex items-center min-w-0 truncate', collapsed ? 'justify-center' : 'gap-3')}>
+        <span className={cn('shrink-0 self-center flex items-center justify-center', isActive && 'text-primary')}>
+          {displayIcon}
+        </span>
+        {!collapsed && <span className="truncate leading-tight self-center">{label}</span>}
       </div>
-      {badge && <span className="shrink-0 ml-2">{badge}</span>}
+      {badge && (collapsed ? badge : <span className="shrink-0 ml-2">{badge}</span>)}
     </button>
   );
 }
@@ -146,40 +129,22 @@ function SidebarHeader({
 }) {
   const { t } = useTranslation();
 
-  if (collapsed) {
-    return (
-      <div className="flex flex-col items-center gap-3 pt-1">
-        <IconButton
-          variant="outline"
-          size="md"
-          onClick={onToggleCollapse}
-          title={t('expandSidebar')}
-        >
-          <img
-            src={logoIcon}
-            alt="Syntive"
-            className="h-5 w-5 shrink-0 select-none"
-          />
-        </IconButton>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center justify-between px-1 pt-1">
-      <img
-        src={logo}
-        alt="Syntive"
-        className="h-6 w-auto select-none shrink-0"
-      />
-
+    <div className={cn('flex pt-1', collapsed ? 'flex-col items-center gap-3' : 'items-center justify-between px-1')}>
+      {!collapsed && (
+        <img src={logo} alt="Syntive" className="h-6 w-auto select-none shrink-0" />
+      )}
       <IconButton
-        variant="ghost"
-        size="sm"
+        variant={collapsed ? 'outline' : 'ghost'}
+        size={collapsed ? 'md' : 'sm'}
         onClick={onToggleCollapse}
-        title={t('collapseSidebar')}
+        title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
       >
-        <Sidebar2 className="h-4 w-4" />
+        {collapsed ? (
+          <img src={logoIcon} alt="Syntive" className="h-5 w-5 shrink-0 select-none" />
+        ) : (
+          <Sidebar2 className="h-4 w-4" />
+        )}
       </IconButton>
     </div>
   );
@@ -214,10 +179,28 @@ function SidebarProfileCard({
 }) {
   const { t } = useTranslation();
 
-  if (collapsed) {
-    return (
-      <div className="rounded-2xl border border-border bg-background/60 p-2 flex flex-col items-center gap-2 w-full">
-        <AvatarInitial label={deviceLabel} size="sm" />
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border border-border bg-background/60',
+        collapsed ? 'p-2 flex flex-col items-center gap-2 w-full' : 'p-3 space-y-3'
+      )}
+    >
+      <div className={cn('flex items-center', !collapsed && 'gap-3')}>
+        <AvatarInitial label={deviceLabel} size={collapsed ? 'sm' : 'md'} />
+        {!collapsed && (
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="text-xs font-semibold text-foreground truncate">
+              {deviceLabel}
+            </span>
+            <span className="text-[10px] tint-text font-mono truncate">
+              {lastSyncText}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {collapsed ? (
         <IconButton
           variant="outline"
           size="sm"
@@ -227,34 +210,18 @@ function SidebarProfileCard({
         >
           <Refresh className={cn('h-3.5 w-3.5 text-primary', syncing && 'animate-spin')} />
         </IconButton>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-background/60 p-3 space-y-3">
-      <div className="flex items-center gap-3">
-        <AvatarInitial label={deviceLabel} size="md" />
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-xs font-semibold text-foreground truncate">
-            {deviceLabel}
-          </span>
-          <span className="text-[10px] tint-text font-mono truncate">
-            {lastSyncText}
-          </span>
-        </div>
-      </div>
-
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full h-8 text-xs font-semibold rounded-xl bg-card hover:bg-accent border-border text-foreground flex items-center justify-center gap-2 cursor-pointer"
-        onClick={onSync}
-        disabled={syncing}
-      >
-        <Refresh className={cn('h-3.5 w-3.5 text-primary', syncing && 'animate-spin')} />
-        <span>{syncing ? t('syncingButton') : t('syncButton')}</span>
-      </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full h-8 text-xs font-semibold rounded-xl bg-card hover:bg-accent border-border text-foreground flex items-center justify-center gap-2 cursor-pointer"
+          onClick={onSync}
+          disabled={syncing}
+        >
+          <Refresh className={cn('h-3.5 w-3.5 text-primary', syncing && 'animate-spin')} />
+          <span>{syncing ? t('syncingButton') : t('syncButton')}</span>
+        </Button>
+      )}
     </div>
   );
 }
@@ -300,40 +267,17 @@ function SidebarFooter({
 }) {
   const { t } = useTranslation();
 
-  if (collapsed) {
-    return (
-      <div className="flex flex-col items-center gap-2 w-full">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onOpenSupport}
-          title={t('headerSupport')}
-          className="h-9 w-9"
-        >
-          <Heart className="h-4.5 w-4.5 text-destructive fill-destructive/20" />
-        </Button>
-        <IconButton
-          variant="ghost"
-          size="lg"
-          onClick={onOpenSettings}
-          title={t('navSettings')}
-        >
-          <Settings className="h-4.5 w-4.5" />
-        </IconButton>
-        <ThemeToggleButton themeMode={themeMode} onToggle={onToggleTheme} />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center justify-between gap-1 w-full">
+    <div className={cn('flex w-full', collapsed ? 'flex-col items-center gap-2' : 'items-center justify-between gap-1')}>
       <Button
         variant="outline"
+        size={collapsed ? 'icon' : 'default'}
         onClick={onOpenSupport}
-        className="text-destructive"
+        title={collapsed ? t('headerSupport') : undefined}
+        className={cn('text-destructive', collapsed && 'h-9 w-9')}
       >
         <Heart className="h-4.5 w-4.5 text-destructive fill-destructive/20" />
-        {t('headerSupport')}
+        {!collapsed && t('headerSupport')}
       </Button>
       <div className="flex items-center gap-1">
         <IconButton
@@ -367,9 +311,7 @@ function DashboardContent({ onLogout }: { onLogout: () => void }) {
   const [showSupportModal, setShowSupportModal] = React.useState(false);
   const [showWidgetSettings, setShowWidgetSettings] = React.useState(false);
   const [deviceLabel, setDeviceLabel] = React.useState(() => getDeviceLabel());
-  const [totalLocalCount, setTotalLocalCount] = React.useState<number>(0);
-  const [totalFolderCount, setTotalFolderCount] = React.useState<number>(0);
-  const [directLinksCount, setDirectLinksCount] = React.useState<number>(0);
+  const [stats, setStats] = React.useState({ bookmarks: 0, folders: 0, directLinks: 0 });
   const [trashCount, setTrashCount] = React.useState<number>(0);
   const [themeMode, setThemeMode] = React.useState<'dark' | 'light' | 'system'>('system');
 
@@ -386,10 +328,6 @@ function DashboardContent({ onLogout }: { onLogout: () => void }) {
     });
   };
 
-  // Search & Filter state for Bookmark tab
-  const [query, setQuery] = React.useState('');
-  const [filter, setFilter] = React.useState<'all' | 'folders' | 'bookmarks'>('all');
-
   React.useEffect(() => {
     const onChange = (changes: Record<string, any>) => {
       if (changes['syntive.customDeviceLabel']) {
@@ -404,10 +342,7 @@ function DashboardContent({ onLogout }: { onLogout: () => void }) {
     try {
       const nodes = await browser.bookmarks.getSubTree(toolbarId());
       const root = nodes?.[0];
-      const stats = root ? computeBookmarkStats(root) : { bookmarks: 0, folders: 0, directLinks: 0 };
-      setTotalLocalCount(stats.bookmarks);
-      setTotalFolderCount(stats.folders);
-      setDirectLinksCount(stats.directLinks);
+      setStats(root ? computeBookmarkStats(root) : { bookmarks: 0, folders: 0, directLinks: 0 });
     } catch (err) {
       console.error('Failed to calculate total bookmarks & folders:', err);
     }
@@ -599,20 +534,13 @@ function DashboardContent({ onLogout }: { onLogout: () => void }) {
         <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
           {activeTab === 'dashboard' ? (
             <DashboardView
-              totalBookmarksCount={totalLocalCount}
-              totalFoldersCount={totalFolderCount}
-              directLinksCount={directLinksCount}
+              stats={stats}
               syncStatus={status}
               manageWidgetModalOpen={showWidgetSettings}
-              onManageWidgetModalChange={setShowWidgetSettings}
+              onManageModalChange={setShowWidgetSettings}
             />
           ) : activeTab === 'bookmark' ? (
-            <BookmarkView
-              query={query}
-              setQuery={setQuery}
-              filter={filter}
-              setFilter={setFilter}
-            />
+            <BookmarkView />
           ) : activeTab === 'organize' ? (
             <BookmarkManagementView />
           ) : (

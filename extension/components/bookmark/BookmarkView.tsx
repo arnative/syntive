@@ -5,8 +5,6 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  pointerWithin,
-  closestCenter,
   useDroppable,
   DragOverlay,
   type DragStartEvent,
@@ -22,8 +20,10 @@ import { BookmarkList } from './BookmarkList';
 import { Pagination } from './Pagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FilterBtn } from '@/components/ui/filter-btn';
 import { FaviconImage } from '@/components/ui/FaviconImage';
 import { cn, domainOf } from '@/lib/utils';
+import { pointerThenCenter, DROP_ANIMATION } from '@/lib/dnd';
 import { useTranslation } from '@/lib/i18n';
 import logoIcon from '@/assets/logo-icon.svg';
 
@@ -33,44 +33,20 @@ import logoIcon from '@/assets/logo-icon.svg';
  * Guarantees the target card highlighted by the white border is ALWAYS the closest column card under the cursor.
  */
 const folderGridCollision: CollisionDetection = (args) => {
-  const aType = args.active.data.current?.type;
-
-  if (aType === 'folder') {
-    const folderContainers = args.droppableContainers.filter((c) => {
-      return c.data.current?.type === 'folder' && c.id !== args.active.id;
-    });
-
-    const pointerCollisions = pointerWithin({
-      ...args,
-      droppableContainers: folderContainers,
-    });
-    if (pointerCollisions.length > 0) return pointerCollisions;
-
-    return closestCenter({
-      ...args,
-      droppableContainers: folderContainers,
-    });
+  if (args.active.data.current?.type === 'folder') {
+    const folderContainers = args.droppableContainers.filter(
+      (c) => c.data.current?.type === 'folder' && c.id !== args.active.id
+    );
+    return pointerThenCenter({ ...args, droppableContainers: folderContainers });
   }
-
-  const pointerCollisions = pointerWithin(args);
-  if (pointerCollisions.length > 0) return pointerCollisions;
-  return closestCenter(args);
+  return pointerThenCenter(args);
 };
 
-export function BookmarkView({
-  query,
-  setQuery,
-  filter,
-  setFilter,
-}: {
-  query: string;
-  setQuery: (q: string) => void;
-  filter: 'all' | 'folders' | 'bookmarks';
-  setFilter: (f: 'all' | 'folders' | 'bookmarks') => void;
-}) {
+export function BookmarkView() {
   const { t } = useTranslation();
+  const [query, setQuery] = React.useState('');
+  const [filter, setFilter] = React.useState<'all' | 'folders' | 'bookmarks'>('all');
   const [currentFolderId, setCurrentFolderId] = React.useState<string>(toolbarId());
-  const [currentFolder, setCurrentFolder] = React.useState<Bm | null>(null);
   const [breadcrumbs, setBreadcrumbs] = React.useState<{ id: string; title: string }[]>([]);
   const { folders, bookmarks, loading, renameFolder, deleteNode, moveNode } =
     useBookmarks(currentFolderId);
@@ -89,18 +65,16 @@ export function BookmarkView({
   const BOOKMARKS_PER_PAGE = 15;
 
   React.useEffect(() => {
-    if (currentFolderId === toolbarId()) {
-      setCurrentFolder(null);
-    } else {
-      browser.bookmarks
-        .get(currentFolderId)
-        .then(([node]) => setCurrentFolder(node))
-        .catch(() => setCurrentFolder(null));
-    }
     setBookmarkPage(1);
-  }, [currentFolderId]);
+  }, [filter]);
+
+  // Navigate to the parent of the current folder (second-to-last breadcrumb).
+  const handleGoBack = () => {
+    setCurrentFolderId(breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2].id : toolbarId());
+  };
 
   React.useEffect(() => {
+    setBookmarkPage(1);
     const buildPath = async () => {
       if (currentFolderId === toolbarId()) {
         setBreadcrumbs([]);
@@ -121,18 +95,6 @@ export function BookmarkView({
     };
     buildPath();
   }, [currentFolderId]);
-
-  React.useEffect(() => {
-    setBookmarkPage(1);
-  }, [filter]);
-
-  const handleGoBack = () => {
-    if (currentFolder && currentFolder.parentId) {
-      setCurrentFolderId(currentFolder.parentId);
-    } else {
-      setCurrentFolderId(toolbarId());
-    }
-  };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -258,12 +220,7 @@ export function BookmarkView({
           return;
         }
 
-        if (
-          oType === 'root-grid' ||
-          oType === 'root-links' ||
-          over.id === 'folder-grid-root' ||
-          over.id === 'root-links-dropzone'
-        ) {
+        if (oType === 'root-grid' || oType === 'root-links') {
           await moveNode(activeNodeId, currentFolderId);
           return;
         }
@@ -309,24 +266,21 @@ export function BookmarkView({
 
             {/* Segmented Filter Control */}
             <div className="flex items-center rounded-xl border border-border p-1 bg-card/60 shrink-0 gap-1">
-              <FilterBtn
-                active={filter === 'all'}
-                onClick={() => setFilter('all')}
-                icon={<Filter className="h-3.5 w-3.5 text-current" weight="Filled" />}
-                label={t('filterAll')}
-              />
-              <FilterBtn
-                active={filter === 'folders'}
-                onClick={() => setFilter('folders')}
-                icon={<FolderBookmark className="h-3.5 w-3.5 text-current" weight="Filled" />}
-                label={t('filterFolders')}
-              />
-              <FilterBtn
-                active={filter === 'bookmarks'}
-                onClick={() => setFilter('bookmarks')}
-                icon={<Link2 className="h-3.5 w-3.5 text-current" weight="Filled" />}
-                label={t('filterLinks')}
-              />
+        {(
+          [
+            { key: 'all', label: t('filterAll'), icon: <Filter className="h-3.5 w-3.5 text-current" weight="Filled" /> },
+            { key: 'folders', label: t('filterFolders'), icon: <FolderBookmark className="h-3.5 w-3.5 text-current" weight="Filled" /> },
+            { key: 'bookmarks', label: t('filterLinks'), icon: <Link2 className="h-3.5 w-3.5 text-current" weight="Filled" /> },
+          ] as const
+        ).map((f) => (
+          <FilterBtn
+            key={f.key}
+            active={filter === f.key}
+            onClick={() => setFilter(f.key)}
+            icon={f.icon}
+            label={f.label}
+          />
+        ))}
             </div>
           </div>
 
@@ -371,7 +325,7 @@ export function BookmarkView({
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start w-full relative">
             {showFolders && (
               <div className="lg:col-span-3 space-y-3 w-full relative">
-                <RootGridDropZone>
+                <DropZone id="folder-grid-root" type="root-grid">
                   <div className="space-y-3 w-full relative">
                     <div className="h-7 flex items-center justify-between px-1">
                       <span className="section-label flex items-center gap-2">
@@ -409,13 +363,13 @@ export function BookmarkView({
                       </div>
                     )}
                   </div>
-                </RootGridDropZone>
+                </DropZone>
               </div>
             )}
 
             {showBookmarks && (
               <div className={cn('space-y-3 w-full lg:col-span-1', !showFolders && 'lg:col-span-4')}>
-                <RootLinksDropZone>
+                <DropZone id="root-links-dropzone" type="root-links">
                   <div className="space-y-3 w-full">
                     <div className="h-7 flex items-center justify-between px-1">
                       <span className="section-label flex items-center gap-2">
@@ -447,15 +401,14 @@ export function BookmarkView({
                       )}
                     </div>
                   </div>
-                </RootLinksDropZone>
+                </DropZone>
               </div>
             )}
           </div>
         </div>
 
-        {typeof window !== 'undefined'
-          ? createPortal(
-              <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+        {createPortal(
+          <DragOverlay dropAnimation={DROP_ANIMATION}>
                 {activeFolder ? (
                   <div className="w-90 max-w-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] rotate-3 scale-105 pointer-events-none opacity-95 ring-2 ring-primary rounded-2xl overflow-hidden backdrop-blur-md bg-card transition-transform duration-100">
                     <FolderCardStatic folder={activeFolder} />
@@ -472,62 +425,17 @@ export function BookmarkView({
                     </span>
                   </div>
                 ) : null}
-              </DragOverlay>,
-              document.body
-            )
-          : null}
+        </DragOverlay>, document.body)}
       </DndContext>
     </div>
   );
 }
 
-function RootGridDropZone({ children }: { children: React.ReactNode }) {
-  const { setNodeRef } = useDroppable({
-    id: 'folder-grid-root',
-    data: { type: 'root-grid' },
-  });
+function DropZone({ id, type, children }: { id: string; type: string; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id, data: { type } });
   return (
     <div ref={setNodeRef} className="w-full">
       {children}
     </div>
-  );
-}
-
-function RootLinksDropZone({ children }: { children: React.ReactNode }) {
-  const { setNodeRef } = useDroppable({
-    id: 'root-links-dropzone',
-    data: { type: 'root-links' },
-  });
-  return (
-    <div ref={setNodeRef} className="w-full">
-      {children}
-    </div>
-  );
-}
-
-function FilterBtn({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-1.5 rounded-lg px-3 h-6 text-xs font-medium transition-all select-none cursor-pointer',
-        active
-          ? 'bg-accent text-primary font-semibold border border-border'
-          : 'tint-text hover:text-foreground hover:bg-accent/30'
-      )}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
   );
 }

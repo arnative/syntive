@@ -4,6 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { moveToTrash } from '@/lib/trash';
+import { useTranslation } from '@/lib/i18n';
 import { useScanTableState } from './ScanTableState';
 
 interface DuplicateBookmarkItem {
@@ -27,9 +28,7 @@ interface DuplicateLinksTabProps {
   expandedLinkGroupKeys: Set<string>;
   toggleExpandLinkGroup: (key: string) => void;
   pageData: DuplicateGroup[];
-  page: number;
-  itemsPerPage: number;
-  language: string;
+  rowOffset: number;
   hasScanned: boolean;
   isScanning: boolean;
   handleScanDuplicateLinks: () => void;
@@ -42,19 +41,13 @@ export function DuplicateLinksTab({
   expandedLinkGroupKeys,
   toggleExpandLinkGroup,
   pageData,
-  page,
-  itemsPerPage,
-  language,
+  rowOffset,
   hasScanned,
   isScanning,
   handleScanDuplicateLinks,
 }: DuplicateLinksTabProps) {
-  const placeholder = useScanTableState(hasScanned, isScanning, dupLinkGroups.length, language, {
-    subtitleId: 'Klik tombol Pindai untuk menganalisis link duplikat Anda.',
-    subtitleEn: 'Click Scan to analyze your duplicate links.',
-    emptyId: 'Tidak Ada Link Duplikat Ditemukan!',
-    emptyEn: 'No Duplicate Links Found!',
-  });
+  const { t } = useTranslation();
+  const placeholder = useScanTableState(hasScanned, isScanning, dupLinkGroups.length, 'scanSubDuplicates', 'emptyDuplicatesTitle');
   if (placeholder) return placeholder;
 
   return (
@@ -97,11 +90,7 @@ export function DuplicateLinksTab({
                       type="button"
                       onClick={() => toggleExpandLinkGroup(group.key)}
                       className="p-0.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      title={
-                        isGroupExpanded
-                          ? (language === 'id' ? 'Sembunyikan detail' : 'Hide details')
-                          : (language === 'id' ? 'Tampilkan detail' : 'Show details')
-                      }
+                      title={isGroupExpanded ? t('hideDetails') : t('showDetails')}
                     >
                       {isGroupExpanded ? (
                         <AngleDown className="h-4 w-4 text-current shrink-0" />
@@ -110,7 +99,7 @@ export function DuplicateLinksTab({
                       )}
                     </button>
                     <span className="tint-text font-medium text-xs shrink-0">
-                      #{(page - 1) * itemsPerPage + groupIdx + 1}
+                      #{rowOffset + groupIdx + 1}
                     </span>
                     <span
                       className="truncate text-xs cursor-pointer hover:underline"
@@ -121,7 +110,7 @@ export function DuplicateLinksTab({
                     </span>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-mono border-border bg-card text-foreground shrink-0 ml-2">
-                    {group.items.length} {language === 'id' ? 'duplikat' : 'duplicates'}
+                    {t('dupCountBadge', { count: group.items.length })}
                   </Badge>
                 </div>
               </td>
@@ -170,11 +159,11 @@ export function DuplicateLinksTab({
                     <td className="py-2.5 px-4 text-center">
                       {isOriginal ? (
                         <Badge className="bg-primary text-primary-foreground text-[9px] uppercase font-medium px-1.5 py-0.5 rounded-md">
-                          {language === 'id' ? 'Simpan' : 'Keep Original'}
+                          {t('tagKeep')}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-[9px] uppercase font-medium text-destructive border-destructive/30 bg-destructive/10 rounded-md">
-                          {language === 'id' ? 'Duplikat' : 'Duplicate'}
+                          {t('duplicateTag')}
                         </Badge>
                       )}
                     </td>
@@ -187,7 +176,7 @@ export function DuplicateLinksTab({
                           handleScanDuplicateLinks();
                         }}
                         className="h-7 w-7 p-0 rounded-lg text-destructive hover:bg-destructive/10 cursor-pointer"
-                        title="Buang ke Tong Sampah"
+                        title={t('moveToTrashTooltip')}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-current" />
                       </Button>

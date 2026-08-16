@@ -4,6 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DuplicateFolderGroup, mergeDuplicateFolderGroup } from '@/lib/bookmarkManagement';
+import { useTranslation } from '@/lib/i18n';
 import { useScanTableState } from './ScanTableState';
 
 interface MergeFoldersTabProps {
@@ -13,7 +14,6 @@ interface MergeFoldersTabProps {
   expandedGroupKeys: Set<string>;
   toggleExpandGroup: (key: string) => void;
   pageData: DuplicateFolderGroup[];
-  language: string;
   hasScanned: boolean;
   isScanning: boolean;
   isProcessing: boolean;
@@ -29,7 +29,6 @@ export function MergeFoldersTab({
   expandedGroupKeys,
   toggleExpandGroup,
   pageData,
-  language,
   hasScanned,
   isScanning,
   isProcessing,
@@ -37,12 +36,8 @@ export function MergeFoldersTab({
   setNotice,
   handleScanMerge,
 }: MergeFoldersTabProps) {
-  const placeholder = useScanTableState(hasScanned, isScanning, duplicateGroups.length, language, {
-    subtitleId: 'Klik tombol Pindai untuk menganalisis folder duplikat Anda.',
-    subtitleEn: 'Click Scan to analyze your duplicate folders.',
-    emptyId: 'Tidak Ada Folder Duplikat!',
-    emptyEn: 'No Duplicate Folders Found!',
-  });
+  const { t } = useTranslation();
+  const placeholder = useScanTableState(hasScanned, isScanning, duplicateGroups.length, 'scanSubMerge', 'emptyMergeTitle');
   if (placeholder) return placeholder;
 
   const handleMergeSingle = async (group: DuplicateFolderGroup) => {
@@ -50,11 +45,7 @@ export function MergeFoldersTab({
     setNotice(null);
     try {
       const result = await mergeDuplicateFolderGroup(group);
-      setNotice(
-        language === 'id'
-          ? `Folder "${group.folderName}" berhasil digabungkan (${result.movedBookmarksCount} link dipindahkan).`
-          : `Folder "${group.folderName}" merged successfully (${result.movedBookmarksCount} links moved).`
-      );
+      setNotice(t('mergedSingleNotice', { name: group.folderName, count: result.movedBookmarksCount }));
       await handleScanMerge();
     } catch (err) {
       console.error('Merge single failed:', err);
@@ -94,11 +85,7 @@ export function MergeFoldersTab({
                     type="button"
                     onClick={() => toggleExpandGroup(group.key)}
                     className="p-0.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    title={
-                      isGroupExpanded
-                        ? (language === 'id' ? 'Sembunyikan detail' : 'Hide details')
-                        : (language === 'id' ? 'Tampilkan detail' : 'Show details')
-                    }
+                    title={isGroupExpanded ? t('hideDetails') : t('showDetails')}
                   >
                     {isGroupExpanded ? (
                       <AngleDown className="h-4 w-4 text-current shrink-0" />
@@ -111,14 +98,12 @@ export function MergeFoldersTab({
                     {group.folderName}
                   </span>
                   <Badge variant="outline" className="text-[10px] font-mono border-border text-muted-foreground shrink-0 ml-1">
-                    {group.folders.length} {language === 'id' ? 'folder' : 'folders'}
+                    {t('foldersCountBadge', { count: group.folders.length })}
                   </Badge>
                 </div>
               </td>
               <td className="py-3 px-4 font-mono text-[11px] tint-text truncate" title={primaryFolder.folderPath}>
-                <span className="font-medium text-foreground">
-                  {language === 'id' ? 'Target: ' : 'Target: '}
-                </span>
+                <span className="font-medium text-foreground">Target: </span>
                 {primaryFolder.folderPath}
               </td>
               <td className="py-3 px-4 text-center font-mono text-[11px] text-foreground font-medium">
@@ -131,7 +116,7 @@ export function MergeFoldersTab({
                   disabled={isProcessing}
                   className="h-7 px-3 rounded-lg text-[11px] font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
                 >
-                  <span>{language === 'id' ? 'Gabungkan' : 'Merge'}</span>
+                  <span>{t('mergeBtnAction')}</span>
                 </Button>
               </td>
             </tr>
@@ -160,11 +145,11 @@ export function MergeFoldersTab({
                   <td className="py-2 px-4 text-center">
                     {idx === 0 ? (
                       <Badge className="bg-primary text-primary-foreground text-[9px] uppercase font-medium px-1.5 py-0.5 rounded-md">
-                        {language === 'id' ? 'Folder Utama' : 'Primary'}
+                        {t('tagPrimaryFolder')}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="text-[9px] uppercase font-medium text-destructive border-destructive/30 bg-destructive/10 rounded-md">
-                        {language === 'id' ? 'Akan Dibuang' : 'Will Trash'}
+                        {t('tagWillTrash')}
                       </Badge>
                     )}
                   </td>

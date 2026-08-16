@@ -3,14 +3,13 @@ import { Folder, AngleDown, AngleRight } from 'reicon-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SplitFolderCandidate, splitFolderByDomain } from '@/lib/bookmarkManagement';
+import { useTranslation } from '@/lib/i18n';
 import { useScanTableState } from './ScanTableState';
 
 interface DomainGroupingTabProps {
   splitCandidates: SplitFolderCandidate[];
   pageData: SplitFolderCandidate[];
-  page: number;
-  itemsPerPage: number;
-  language: string;
+  rowOffset: number;
   hasScanned: boolean;
   isScanning: boolean;
   isProcessing: boolean;
@@ -22,9 +21,7 @@ interface DomainGroupingTabProps {
 export function DomainGroupingTab({
   splitCandidates,
   pageData,
-  page,
-  itemsPerPage,
-  language,
+  rowOffset,
   hasScanned,
   isScanning,
   isProcessing,
@@ -32,6 +29,7 @@ export function DomainGroupingTab({
   setNotice,
   handleScanSplit,
 }: DomainGroupingTabProps) {
+  const { t } = useTranslation();
   const [expandedKeys, setExpandedKeys] = React.useState<Set<string>>(new Set());
 
   const toggleExpand = (folderId: string) => {
@@ -48,11 +46,7 @@ export function DomainGroupingTab({
     setNotice(null);
     try {
       const movedCount = await splitFolderByDomain(candidate);
-      setNotice(
-        language === 'id'
-          ? `Berhasil memisahkan folder "${candidate.folderName}" (${movedCount} link dipindahkan ke sub-folder domain).`
-          : `Successfully split folder "${candidate.folderName}" (${movedCount} links moved to domain sub-folders).`
-      );
+      setNotice(t('splitSuccessNotice', { name: candidate.folderName, count: movedCount }));
       await handleScanSplit();
     } catch (err) {
       console.error('Group failed:', err);
@@ -61,18 +55,13 @@ export function DomainGroupingTab({
     }
   };
 
-  const placeholder = useScanTableState(hasScanned, isScanning, splitCandidates.length, language, {
-    subtitleId: 'Klik tombol Pindai untuk menganalisis pengelompokan domain Anda.',
-    subtitleEn: 'Click Scan to analyze domain grouping.',
-    emptyId: 'Tidak Ada Folder Yang Perlu Dikelompokkan!',
-    emptyEn: 'No Folders Need Domain Grouping!',
-  });
+  const placeholder = useScanTableState(hasScanned, isScanning, splitCandidates.length, 'scanSubSplit', 'emptySplitTitle');
   if (placeholder) return placeholder;
 
   return (
     <>
       {pageData.map((candidate, idx) => {
-        const rowNumber = (page - 1) * itemsPerPage + idx + 1;
+        const rowNumber = rowOffset + idx + 1;
         const isExpanded = expandedKeys.has(candidate.folderId);
         const totalBookmarksInCandidate = candidate.domainGroups.reduce((acc, g) => acc + g.count, 0);
 
@@ -90,11 +79,7 @@ export function DomainGroupingTab({
                       type="button"
                       onClick={() => toggleExpand(candidate.folderId)}
                       className="p-0.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      title={
-                        isExpanded
-                          ? (language === 'id' ? 'Sembunyikan detail' : 'Hide details')
-                          : (language === 'id' ? 'Tampilkan detail' : 'Show details')
-                      }
+                      title={isExpanded ? t('hideDetails') : t('showDetails')}
                     >
                       {isExpanded ? (
                         <AngleDown className="h-4 w-4 text-current shrink-0" />
@@ -107,7 +92,7 @@ export function DomainGroupingTab({
                       {candidate.folderName}
                     </span>
                     <Badge variant="outline" className="text-[10px] font-mono border-border text-muted-foreground shrink-0 ml-1">
-                      {candidate.domainGroups.length} {language === 'id' ? 'domain' : 'domains'}
+                      {t('domainsCountBadge', { count: candidate.domainGroups.length })}
                     </Badge>
                   </div>
                   {isExpanded && (
@@ -140,7 +125,7 @@ export function DomainGroupingTab({
                   disabled={isProcessing}
                   className="h-7 px-3 rounded-lg text-[11px] font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
                 >
-                  {language === 'id' ? 'Kelompokkan' : 'Group'}
+                  {t('groupBtnAction')}
                 </Button>
               </td>
             </tr>
@@ -169,7 +154,7 @@ export function DomainGroupingTab({
                   </td>
                   <td className="py-2 px-4 text-center">
                     <Badge variant="outline" className="text-[9px] uppercase font-medium text-info border-info/30 bg-info/10 rounded-md">
-                      {language === 'id' ? 'Akan Dibuat' : 'Will Create'}
+                      {t('tagWillCreate')}
                     </Badge>
                   </td>
                 </tr>

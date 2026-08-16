@@ -4,6 +4,34 @@ All notable changes to the **Syntive** project will be documented in this file.
 
 ---
 
+## [1.3.1] - 2026-08-16
+
+### 🪶 Over-Engineering Audit (Ponytail) — Round 2
+- **−433 net lines** across 19 files (+3 shared helpers created, 1 dead component deleted).
+- Management module: 53 hand-rolled `language === 'id'` ternaries migrated to the shared `t()` i18n system (~33 new dictionary keys); the `language` prop is gone from all 4 tabs.
+- Management scan/action handlers deduplicated into `runScan` / `runAction` / `triState` / `autoSelectSet` helpers.
+- Segmented filter pill copy-pasted 7× replaced by one shared `ui/filter-btn.tsx`; success notice banner by `ui/notice-banner.tsx`; dnd collision + overlay animation by `lib/dnd.ts`.
+
+### ♻️ Native Over Reimplementation
+- Hijri calendar arithmetic (custom leap formula + 32-line day-accumulation loop) now derives everything from `Intl` Umm al-Qura — also fixes the old formula's ±1-day mismatch with the displayed "today".
+- Theme surface tinting: 30-line `hexToOklch` color science replaced by CSS relative color syntax (`oklch(from var(--accent-source) l c h)`) in `globals.css`; per-preset `--primary-foreground` values are precomputed.
+- `normalizeUrl` (duplicate matching) rebuilt on `new URL()` — lowercases the host and strips hash/query natively.
+- Dead `chrome.topSites.get(callback)` fallback removed (WXT guarantees promise-based `browser.*`).
+
+### 🐛 Fixes
+- **Sync pull-restore is now partial-failure safe**: restoring merged toolbar nodes runs per top-level node, and if any node fails the sync never pushes the incomplete tree nor advances the local version (previously a single bad node could permanently drop local-only bookmarks created after it).
+- Bookmark "back" navigation derives the parent from breadcrumbs instead of a separate async fetch (removes a state + effect race).
+- Trash summary text ("Total N item") now localized in EN.
+- Stale-page flash in Trash/Favorite-sites pagination replaced by a derived page clamp.
+
+### 🧹 Cleanup
+- Sidebar collapsed/expanded dual-branch renders merged into single conditional renders (4 components).
+- `BookmarkView`: twin root drop zones → one `DropZone`; `currentFolder` state removed; dead SSR portal guards removed.
+- `WidgetsSection`: dead controlled/uncontrolled dual modal state removed (single controlled caller); dashboard stats threaded as one object.
+- Deleted unused `ui/list-item-card.tsx`; moved popup-only `formatTime` out of shared utils.
+
+---
+
 ## [1.1.4] - 2026-07-31
 
 ### 🎨 Custom UI Dropdown Component Refinement

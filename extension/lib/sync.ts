@@ -197,13 +197,30 @@ export async function syncNow(): Promise<SyncStatus> {
           trashItems = mergedTrash;
         }
 
-        // Apply merged tree to local toolbar
+        // Apply merged tree to local toolbar. Restore top-level nodes
+        // independently so one bad node (e.g. an invalid URL) doesn't abort
+        // the rest — local-only nodes after it would otherwise be lost.
         suppress = true;
+        let restoreFailures = 0;
         try {
           await clearToolbar();
-          await restoreTree(toolbarId(), mergedChildren);
+          for (const child of mergedChildren) {
+            try {
+              await restoreTree(toolbarId(), [child]);
+            } catch (err) {
+              restoreFailures++;
+              console.warn('syntive: failed to restore node', child.title, err);
+            }
+          }
         } finally {
           suppress = false;
+        }
+        if (restoreFailures > 0) {
+          // Partial restore: the local tree is incomplete, so never push it
+          // (that would drop the unrestored cloud items from the vault) and
+          // don't advance the known version — the next sync re-pulls and
+          // re-merges instead.
+          return { ...EMPTY_STATUS, error: `restore-failed (${restoreFailures} nodes)` };
         }
         tree = await serializeToolbar();
 

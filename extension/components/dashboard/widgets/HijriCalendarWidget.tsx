@@ -33,11 +33,9 @@ const HIJRI_MONTHS_EN = [
   'Dhu al-Hijjah',
 ];
 
+// Compact 2-letter day initials for the narrow calendar header.
 const DAYS_SHORT_ID = ['Mg', 'Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb'];
 const DAYS_SHORT_EN = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-const DAYS_FULL_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-const DAYS_FULL_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 interface HijriEventDef {
   month: number; // 0-indexed
@@ -64,21 +62,20 @@ const ISLAMIC_EVENTS: HijriEventDef[] = [
   { month: 11, day: 13, titleId: 'Hari Tasyrik 3', titleEn: 'Tashreeq Day 3' },
 ];
 
-function getTodayHijri() {
-  const now = new Date();
+// All Hijri arithmetic is derived from the platform's Umm al-Qura calendar
+// (Intl islamic-umalqura) — no hand-rolled leap formulas.
+const HIJRI_FMT = new Intl.DateTimeFormat('en-TN-u-ca-islamic-umalqura-nu-latn', {
+  day: 'numeric',
+  month: 'numeric',
+  year: 'numeric',
+});
+
+function hijriPartsOf(date: Date): { day: number; monthIndex: number; year: number } {
   let day = 1;
   let monthIndex = 0;
   let year = 1448;
-  const dayOfWeek = now.getDay();
-
   try {
-    const formatter = new Intl.DateTimeFormat('en-TN-u-ca-islamic-umalqura-nu-latn', {
-      day: 'numeric',
-      month: 'numeric',
-      year: 'numeric',
-    });
-    const parts = formatter.formatToParts(now);
-    parts.forEach((p) => {
+    HIJRI_FMT.formatToParts(date).forEach((p) => {
       if (p.type === 'day') day = parseInt(p.value, 10);
       if (p.type === 'month') monthIndex = Math.max(0, parseInt(p.value, 10) - 1);
       if (p.type === 'year') year = parseInt(p.value, 10);
@@ -86,17 +83,37 @@ function getTodayHijri() {
   } catch {
     // Intl islamic-umalqura is supported by all targeted browsers; keep defaults if not.
   }
+  return { day, monthIndex, year };
+}
 
-  return { day, monthIndex, year, dayOfWeek };
+function getTodayHijri() {
+  const now = new Date();
+  const { day, monthIndex, year } = hijriPartsOf(now);
+  return { day, monthIndex, year, dayOfWeek: now.getDay() };
+}
+
+// Gregorian date of the 1st of the given Hijri month. Steps ±30 days (always
+// at least one Hijri month) from the current month's first day, re-snapping
+// to the 1st, until aligned.
+function dateOfHijriFirst(monthIndex: number, year: number): Date {
+  const today = getTodayHijri();
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); // midday: immune to DST boundary shifts
+  d.setDate(d.getDate() - (today.day - 1));
+  let diff = (year - today.year) * 12 + (monthIndex - today.monthIndex);
+  while (diff !== 0) {
+    d.setDate(d.getDate() + Math.sign(diff) * 30);
+    const p = hijriPartsOf(d);
+    d.setDate(d.getDate() - (p.day - 1));
+    diff = (year - p.year) * 12 + (monthIndex - p.monthIndex);
+  }
+  return d;
 }
 
 function getDaysInHijriMonth(monthIndex: number, year: number): number {
-  if (monthIndex === 8) return 30; // Ramadan
-  if (monthIndex === 11) {
-    const isLeap = (11 * year + 14) % 30 < 11;
-    return isLeap ? 30 : 29;
-  }
-  return monthIndex % 2 === 0 ? 30 : 29;
+  const start = dateOfHijriFirst(monthIndex, year);
+  const next = dateOfHijriFirst(monthIndex === 11 ? 0 : monthIndex + 1, monthIndex === 11 ? year + 1 : year);
+  return Math.round((next.getTime() - start.getTime()) / 86_400_000);
 }
 
 export function HijriCalendarWidget({ dragHandle }: { dragHandle?: React.ReactNode }) {
@@ -104,10 +121,12 @@ export function HijriCalendarWidget({ dragHandle }: { dragHandle?: React.ReactNo
   const isId = language === 'id';
   const monthNames = isId ? HIJRI_MONTHS_ID : HIJRI_MONTHS_EN;
   const daysShort = isId ? DAYS_SHORT_ID : DAYS_SHORT_EN;
-  const daysFull = isId ? DAYS_FULL_ID : DAYS_FULL_EN;
 
   const today = React.useMemo(() => getTodayHijri(), []);
-  const now = React.useMemo(() => new Date(), []);
+  const now = new Date();
+  const todayWeekday = new Intl.DateTimeFormat(isId ? 'id-ID' : 'en-US', {
+    weekday: 'long',
+  }).format(now);
 
   const [activeTab, setActiveTab] = React.useState<'today' | 'calendar'>('today');
 
@@ -156,39 +175,11 @@ export function HijriCalendarWidget({ dragHandle }: { dragHandle?: React.ReactNo
     setClickedTooltip(null);
   };
 
-  // Compute Day 1 dayOfWeek for viewMonth/viewYear
-  const firstDayOfWeek = React.useMemo(() => {
-    const monthDiff = (viewYear - today.year) * 12 + (viewMonth - today.monthIndex);
-    let daysOffset = 0;
-
-    if (monthDiff >= 0) {
-      let curM = today.monthIndex;
-      let curY = today.year;
-      for (let i = 0; i < monthDiff; i++) {
-        daysOffset += getDaysInHijriMonth(curM, curY);
-        curM++;
-        if (curM > 11) {
-          curM = 0;
-          curY++;
-        }
-      }
-    } else {
-      let curM = today.monthIndex - 1;
-      let curY = today.year;
-      for (let i = 0; i < Math.abs(monthDiff); i++) {
-        if (curM < 0) {
-          curM = 11;
-          curY--;
-        }
-        daysOffset -= getDaysInHijriMonth(curM, curY);
-        curM--;
-      }
-    }
-
-    const day1Offset = daysOffset - (today.day - 1);
-    const day1OfWeek = (today.dayOfWeek + (day1Offset % 7) + 7) % 7;
-    return day1OfWeek;
-  }, [viewMonth, viewYear, today]);
+  // Day-of-week of the 1st of the viewed Hijri month, straight from Intl.
+  const firstDayOfWeek = React.useMemo(
+    () => dateOfHijriFirst(viewMonth, viewYear).getDay(),
+    [viewMonth, viewYear]
+  );
 
   const daysInViewMonth = getDaysInHijriMonth(viewMonth, viewYear);
 
@@ -323,7 +314,7 @@ export function HijriCalendarWidget({ dragHandle }: { dragHandle?: React.ReactNo
             <div className="flex items-center justify-between text-xs border-b border-border/60 pb-2 shrink-0">
               <div className="flex items-center gap-1.5 font-medium">
                 <span className="font-semibold text-xs text-primary">
-                  {daysFull[today.dayOfWeek]}
+                  {todayWeekday}
                 </span>
                 <span className="text-muted-foreground/60">|</span>
                 <span className="font-mono text-xs text-muted-foreground">

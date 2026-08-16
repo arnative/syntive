@@ -3,12 +3,23 @@ import { Refresh, ArrowUpRight, BookmarkCheck, Clock, MonitorPhone } from 'reico
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatTime } from '@/lib/utils';
 import { getDeviceLabel } from '@/lib/device';
 import type { SyncStatus } from '@/lib/types';
 import { EMPTY_STATUS } from '@/lib/types';
 
 import logoIcon from '@/assets/logo-icon.svg';
+
+// Relative "last sync" label for the popup (popup UI copy is Indonesian-only).
+function formatTime(ts: number | null): string {
+  if (!ts) return 'Belum pernah';
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return 'Baru saja';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} menit lalu`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} jam lalu`;
+  return new Date(ts).toLocaleString('id-ID', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+}
 
 function send<T>(type: string): Promise<T> {
   return browser.runtime.sendMessage({ type });
